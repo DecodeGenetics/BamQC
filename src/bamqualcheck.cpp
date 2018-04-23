@@ -328,6 +328,72 @@ void print(TString & str, std::ofstream & outFile){
 
 void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq, seqan::CharString & qual, size_t & qsize, size_t & ksize);
 
+// -----------------------------------------------------------------------------
+// FUNCTION getSampleIdAndLaneNames()
+// -----------------------------------------------------------------------------
+
+void getSampleIdAndLaneNames(seqan::CharString & id, std::map<seqan::CharString, int> & laneNames, seqan::BamHeader & header)
+{
+    seqan::CharString lanename;
+    for (unsigned i = 0; i < length(header.records); ++i)
+    {
+        if (header.records[i].type == seqan::BAM_HEADER_READ_GROUP)
+        {
+            for (unsigned j = 0; j < length(header.records[i].tags); ++j)
+            {
+                if (seqan::getValueI1(header.records[i].tags[j]) == "ID")
+                {
+                    lanename = seqan::getValueI2(header.records[i].tags[j]);
+                    laneNames[lanename] = laneNames.size();
+                }
+                if (seqan::getValueI1(header.records[i].tags[j]) == "SM")
+                {
+                    id = seqan::getValueI2(header.records[i].tags[j]);
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// FUNCTION getLane()
+// -----------------------------------------------------------------------------
+
+unsigned getLane(seqan::BamAlignmentRecord & record,
+                 seqan::BamTagsDict & tagsDict,
+                 std::map<seqan::CharString, int> & laneNames,
+                 seqan::BamIOContext<seqan::StringSet<seqan::CharString> > & context)
+{
+    unsigned l;
+    for (unsigned tagid = 0; tagid < length(tagsDict); ++tagid)
+    {
+        if (getTagKey(tagsDict, tagid) == "RG")
+        {
+            if (getTagType(tagsDict, tagid) == 'Z')
+            {
+                seqan::CharString readlane;
+                readlane = getTagValue(tagsDict, tagid);
+                readlane = infix(readlane, 1, length(readlane)-1);
+                l = laneNames[readlane];
+                break;
+            }
+            else
+            {
+                std::cout << "Read does not have Z" << "\n";
+                if (write2(std::cout, record, context, seqan::Sam()) != 0)
+                {
+                    std::cerr << "ERROR: Could not write record to stdout \n";
+                }
+                return 1;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// *** MAIN ***
+// =============================================================================
+
 int main(int argc, char const ** argv)
 {
 
@@ -380,30 +446,11 @@ int main(int argc, char const ** argv)
         }
     }
 
-    //Check if more then one lane.
-    unsigned lanecount = 0;
-    seqan::CharString lanename;
-    seqan::CharString pn;
+    //Check if more than one lane.
+    seqan::CharString sampleId;
     std::map<seqan::CharString, int> laneNames;
-    for (unsigned i = 0; i < length(header.records); ++i)
-    {
-        if (header.records[i].type == seqan::BAM_HEADER_READ_GROUP)
-        {
-            for (unsigned j = 0; j < length(header.records[i].tags); ++j)
-            {
-                if (seqan::getValueI1(header.records[i].tags[j]) == "ID")
-                {
-                    lanename = seqan::getValueI2(header.records[i].tags[j]);
-                    laneNames[lanename] = lanecount;
-                    lanecount +=1;
-                }
-                if (seqan::getValueI1(header.records[i].tags[j]) == "SM")
-                {
-                    pn = seqan::getValueI2(header.records[i].tags[j]);
-                }
-            }
-        }
-    }
+    getSampleIdAndLaneNames(sampleId, laneNames, header);
+    unsigned lanecount = laneNames.size();
 
     seqan::clear(header);
 
@@ -454,47 +501,22 @@ int main(int argc, char const ** argv)
             return 1;
         }
         seqan::BamTagsDict tagsDict(record.tags);
-        unsigned l;
-        for (unsigned tagid = 0; tagid < length(tagsDict); ++tagid)
-        {
-            if (getTagKey(tagsDict, tagid) == "RG")
-            {
-                if (getTagType(tagsDict, tagid) == 'Z')
-                {
-                    seqan::CharString readlane;
-                    readlane = getTagValue(tagsDict, tagid);
-                    readlane = infix(readlane, 1, length(readlane)-1);
-                    l = laneNames[readlane];
-                    break;
-                }
-                else
-                {
-                    std::cout << "Read does not have Z" << "\n";
-                    if (write2(std::cout, record, context, seqan::Sam()) != 0)
-                    {
-                        std::cerr << "ERROR: Could not write record to stdout \n";
-                    }
-                    return 1;
-                }
-            }
-        }
+        unsigned l = getLane(record, tagsDict, laneNames, context);
 
-        // Check the four highest flags and continue if any is set.
+        // Check the four highest flags and continue in some cases.
         if (hasFlagSupplementary(record)) {
             rall[l].supplementary +=1;
-            continue;
-        }
-        if (hasFlagDuplicate(record)){
-            rall[l].duplicates +=1;
-            continue;
-        }
-        if (hasFlagQCNoPass(record)){
-            rall[l].QCfailed +=1;
             continue;
         }
         if (hasFlagSecondary(record)){
             rall[l].not_primary_alignment +=1;
             continue;
+        }
+        if (hasFlagDuplicate(record)){
+            rall[l].duplicates +=1;
+        }
+        if (hasFlagQCNoPass(record)){
+            rall[l].QCfailed +=1;
         }
 
         // Triplet counting.
@@ -502,7 +524,7 @@ int main(int argc, char const ** argv)
             return 1;
         }
 
-        if (hasFlagRC(record)) // check if read is reversed complemented
+        if (hasFlagRC(record)) // check if read is in reverse complement
         {
             reverseComplement(record.seq);
             reverse(record.qual);
@@ -582,7 +604,7 @@ int main(int argc, char const ** argv)
 
     for (std::map<seqan::CharString,int>::iterator it=laneNames.begin(); it!=laneNames.end(); ++it)
     {
-            outFile << "pn " << pn << std::endl;
+            outFile << "sample_id " << sampleId << std::endl;
             outFile << "lane " << it->first << std::endl;
             int lid = it->second;
 
