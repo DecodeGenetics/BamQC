@@ -1,0 +1,7 @@
+bamqualcheck.o
+hash.o
+KmerIterator.o
+Kmer.o
+lsb.o
+RepHash.o
+bamqualcheck
