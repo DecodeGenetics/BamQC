@@ -1,62 +1,32 @@
-#include <iostream>
 #include <seqan/arg_parse.h>
-#include <seqan/stream.h>
 #include <seqan/bam_io.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <cmath>
-#include <cstdlib>
-#include <stdint.h>
-#include <seqan/find.h>
-#include <seqan/basic.h>
-#include <seqan/sequence.h>
-#include <seqan/file.h>
 #include <seqan/index.h>
-#include <stddef.h>
-#include <cstddef>
-#include <sstream>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <algorithm>
-
-//static void usage(std::string name);
-//static void version(std::string name);
 
 #include "StreamCounter.hpp"
 #include "RepHash.hpp"
 #include "TripletCounting.hpp"
 #include "version.h"
 
-/*inline bool
-hasFlagSupplementary(seqan::BamAlignmentRecord const & record)
-{
-    return (record.flag & 0x0800) == 0x0800;
-}*/
-
 struct ProgramOptions
 {
-//    std::string version;
-//    char bindir[2000];
-    char realfile[2000];
-    seqan::String<char> outName;
+    // Input and output files.
     seqan::CharString bamFile;
-    seqan::CharString outputFile;
     seqan::CharString referenceFile;
-    std::string kmer;
-    std::string qcut;
+    seqan::CharString outputFile;
+
+    // Parameters of kmerstream.
     std::vector<int> klist;
-    bool online;
     double e;
     std::vector<size_t> q_cutoff;
-    //size_t q_cutoff;
     size_t q_base;
     int seed;
+
+    // Maximum insert size to be counted in histogram.
     int isize;
-    size_t chunksize;
+
     ProgramOptions() :
-        referenceFile("genome.fa"), online(false), e(0.01), q_base(33), seed(0), chunksize(10000) {}
+        referenceFile("genome.fa"), e(0.01), q_base(33), seed(0)
+    {}
 };
 
 
@@ -65,124 +35,62 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
 {
     // Setup ArgumentParser.
     seqan::ArgumentParser parser("bamqualcheck");
-//    ssize_t len = ::readlink("/proc/self/exe", options.bindir, sizeof(options.bindir)-1);
-//    if (len != -1) {
-//        options.bindir[len] = '\0';
-//        }
-//    std::string bindir = std::string(options.bindir);
-//    options.version.append(bindir.begin(),bindir.end()-12);
-//    options.version.append("version.txt");
-//
-//    std::ifstream data((options.version).c_str());
-//    std::string info("");
-//    data >> info;
 
     // Set short description, version, and date.
     setShortDescription(parser, "String Modifier");
-//    setVersion(parser, info); //TODO: FIX so opens version.txt
-    setDate(parser, "April 2015");
+    setDate(parser, "April 2018");
     setVersion(parser, version);
 
     // Define usage line and long description.
-    addUsageLine(parser, "[\\fIOPTIONS\\fP] \"\\fITEXT\\fP\"");
+    addUsageLine(parser, "[\\fIOPTIONS\\fP] \\fIBAMFILE\\fP");
     addDescription(parser, "Program for bam quality checks. ");
 
+    // Add the required argument.
     addArgument(parser, seqan::ArgParseArgument(seqan::ArgParseArgument::INPUTFILE,"bamfile", "False", 1));
-
-    //seqan::ArgParseArgument fileArg(seqan::ArgParseArgument::INPUTFILE);
     setValidValues(parser, 0,"bam sam");
 
-    addSection(parser, "Options");
-    //add option:
-
-    // addOption(parser, seqan::ArgParseOption("v", "version", "Print version and exit"))
-    // setDefaultValue(parse, "v", "False")
-    addOption(parser, seqan::ArgParseOption("r", "reference", "Reference genome filename", seqan::ArgParseArgument::STRING, "FILENAME"));
+    // Add general options.
+    addSection(parser, "General options");
+    addOption(parser, seqan::ArgParseOption("r", "reference", "Reference genome filename.", seqan::ArgParseArgument::STRING, "FILENAME"));
     setDefaultValue(parser, "r", "genome.fa");
-    addOption(parser, seqan::ArgParseOption("k", "kmer-size", "Size of k-mers, single value", seqan::ArgParseArgument::STRING, "STRING"));
-    setDefaultValue(parser, "k", "32");
-    addOption(parser, seqan::ArgParseOption("q", "quality-cutoff", "Comma separated list, keep k-mers with bases above quality threshold in PHRED (default 0)", seqan::ArgParseArgument::STRING, "STRING"));
-    setDefaultValue(parser, "q", "17");
-    addOption(parser, seqan::ArgParseOption("e", "error-rate", "Error rate guaranteed (default value 0.01)", seqan::ArgParseArgument::DOUBLE, "DOUBLE"));
-    setDefaultValue(parser, "e", "0.01");
-    addOption(parser, seqan::ArgParseOption("s", "seed", "Seed value for the randomness (default value 0, use time based randomness)", seqan::ArgParseArgument::INTEGER, "INT"));
-    setDefaultValue(parser, "s", "1");
-    addOption(parser, seqan::ArgParseOption("i", "insert-size", "Set the upper bound for the insert size in insert_size_histogram ( default 1000)", seqan::ArgParseArgument::INTEGER, "INT"));
+    addOption(parser, seqan::ArgParseOption("i", "insert-size", "Upper bound for the insert size in insert size histogram.", seqan::ArgParseArgument::INTEGER, "INT"));
     setDefaultValue(parser, "i", "1000");
-    addOption(parser, seqan::ArgParseOption("o", "output-file", "Path to the output file", seqan::ArgParseArgument::OUTPUTFILE, "OUT"));
-    // required options:
-    setRequired(parser, "o");
-    //setRequired(parser, "k");
-    //setRequired(parser, "q");
-    //setRequired(parser, "e");
-    //setRequired(parser, "s");
-    // option restrictions:
-    //setMinValue(parser, "k", "1");
-    //setMaxValue(parser, "k", "100"); //check this
-    //setMinValue(parser, "q", "0");
-    //setMaxValue(parser, "q", "63"); //check this
+    addOption(parser, seqan::ArgParseOption("o", "output-file", "Output filename.", seqan::ArgParseArgument::OUTPUTFILE, "OUT"));
+
+    // Add kmerstream options.
+    addSection(parser, "Kmerstream options");
+    addOption(parser, seqan::ArgParseOption("k", "kmer-size", "Size of k-mers, single value.", seqan::ArgParseArgument::STRING, "STRING"));
+    setDefaultValue(parser, "k", "32");
+    addOption(parser, seqan::ArgParseOption("q", "quality-cutoff", "Comma separated list, keep k-mers with bases above quality threshold in PHRED.", seqan::ArgParseArgument::STRING, "STRING"));
+    setDefaultValue(parser, "q", "17");
+    addOption(parser, seqan::ArgParseOption("e", "error-rate", "Error rate guaranteed.", seqan::ArgParseArgument::DOUBLE, "DOUBLE"));
+    setDefaultValue(parser, "e", "0.01");
     setMinValue(parser, "e", "0");
+    addOption(parser, seqan::ArgParseOption("s", "seed", "Seed value for the randomness (use time based randomness).", seqan::ArgParseArgument::INTEGER, "INT"));
+    setDefaultValue(parser, "s", "1");
+
+    // Set reference and output files as a required options.
+    setRequired(parser, "r");
+    setRequired(parser, "o");
+
     // Parse command line.
     seqan::ArgumentParser::ParseResult res = seqan::parse(parser, argc, argv);
     if (res != seqan::ArgumentParser::PARSE_OK)
         return res;
 
+    // Get argument and option values.
     getArgumentValue(options.bamFile, parser, 0);
-    //get realpath of bamfile. Seqan does not have this option so CharString has to be read to char[]
-    ssize_t r;
-    r = readlink(toCString(options.bamFile), options.realfile, sizeof(options.realfile)-1);
-    //if bamfile was a symbolic link then read reallink back to options.bamfile
-    //options.realfile[r] = 0;
-    if (r > 0)
-    {
-        options.realfile[r] = '\0';
-        options.bamFile = options.realfile;
-    }
-    //Check if options.bamFile exists
-//    std::fstream inFile(toCString(options.bamFile));
-//    if (!inFile.good())
-//    {
-//        std::cout << "ERROR: Could not open inputfile: " << options.bamFile << std::endl;
-//        res = seqan::ArgumentParser::PARSE_ERROR;
-//        return res;
-//    }
-    // getOptionValue(options.version, parser, "v")
+    std::string qcut, kmer;
     getOptionValue(options.referenceFile, parser, "r");
-    getOptionValue(options.kmer, parser, "k");
-    getOptionValue(options.qcut, parser, "q");
+    getOptionValue(qcut, parser, "q");
+    getOptionValue(kmer, parser, "k");
     getOptionValue(options.e, parser, "e");
     getOptionValue(options.seed, parser, "s");
     getOptionValue(options.isize, parser, "i");
-
-//    std::string b(options.bindir);
-//    append(options.outName, b.substr(0,b.find_last_of("/")));
-//    std::string s(toCString(options.bamFile));
-//    if (s.find_last_of("/") < s.length()) {
-//        append(options.outName, s.substr(s.find_last_of("/")));
-//    }
-//    else {
-//        append(options.outName, s);
-//    }
-//
-//    append(options.outName, ".qualcheck");
-//    setDefaultValue(parser, "o", options.outName);
     getOptionValue(options.outputFile, parser, "o");
 
-
-
-    std::stringstream sk(options.kmer);
-
-    int i;
-    while (sk >> i)
-    {
-        options.klist.push_back(i);
-
-        if (sk.peek() == ',')
-            sk.ignore();
-    }
-
-    std::stringstream sq(options.qcut);
-
+    // Parse the list of quality cutoff values.
+    std::stringstream sq(qcut);
     size_t j;
     while (sq >> j)
     {
@@ -192,24 +100,37 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
             sq.ignore();
     }
 
+    // Parse the list of k-mer sizes.
+    std::stringstream sk(kmer);
+    int i;
+    while (sk >> i)
+    {
+        options.klist.push_back(i);
+
+        if (sk.peek() == ',')
+            sk.ignore();
+    }
+
     return seqan::ArgumentParser::PARSE_OK;
 }
-
 
 class ReadQualityHasher {
     public:
         ReadQualityHasher(const ProgramOptions &opt) : hf(), k(0), sc(opt.e, opt.seed), q_cutoff(0), q_base(opt.q_base) {
-        if (opt.seed != 0) {
-            hf.seed(opt.seed);
+            if (opt.seed != 0) {
+                hf.seed(opt.seed);
+            }
         }
-        }
+
         void setQualityCutoff(size_t q) {
             q_cutoff = q;
         }
+
         void setK(size_t _k) {
             k = _k;
             hf.init(k);
         }
+
         void operator()(const char* s, size_t l, const char* q, size_t ql) {
             // create hashes for all k-mers
             // operate on hashes
@@ -220,13 +141,9 @@ class ReadQualityHasher {
             }
             while (j < l)
             {
-                //cout << "(" << i << ", " << j << ", " << last_valid << ")\t" << string(s).substr(i,j-i) << endl;
-                // s[i...j-1] is a valid string, all k-mers in s[..j-1] have been processed
                 char c = s[j];
                 if (c != 'N' && c != 'n' && (q[j] >= (char) (q_base+q_cutoff))) {
                     if (last_valid) {
-                        // s[i..j-1] was a valid k-mer k-mer, update
-                        //cout << "out,in = " << s[i] << ", " << s[j] << endl;
                         hf.update(s[i],s[j]);
                         i++;
                         j++;
@@ -234,7 +151,6 @@ class ReadQualityHasher {
                     else {
                         if (i + k -1 == j) {
                             hf.init(s+i); // start the k-mer at position i
-                            //cout << " new valid k-mer" << endl;
                             last_valid = true;
                             j++;
                         }
@@ -250,42 +166,48 @@ class ReadQualityHasher {
                     last_valid = false;
                 }
                 if (last_valid) {
-                    //cout << "hash value " << hf.hash() << endl;
                     handle(hf.hash());
                 }
             }
         }
+
         void handle(uint64_t val) {
             sc(val);
         }
+
         std::string humanReport() {
             return sc.humanReport();
         }
+
         std::string report() {
             return sc.report();
         }
+
         size_t F0() {
             return sc.F0();
         }
+
         size_t f1() {
             return sc.f1();
         }
+
         size_t get_sumCount() {
             return sc.get_sumCount(); // This function is added to StreamCounter.hpp
         }
+
         size_t F2() {
             return sc.F2();
         }
+
         bool join(const ReadQualityHasher& o) {
             return sc.join(o.sc);
         }
+
     private:
         size_t q_cutoff,q_base;
         RepHash hf;
         size_t k;
         StreamCounter sc;
-        //F2Counter f2;
-        //SumCounter sum;
 };
 
 
@@ -318,7 +240,6 @@ public:
     void get_soft_clipping_end_histogram(std::ofstream & outFile);
     void get_average_base_qual_histogram(std::ofstream & outFile);
     void get_insert_size_histogram(std::ofstream & outFile);
-//    void get_mean_insert_size(std::ofstream & outFile);
     void get_mapping_qual_histogram(std::ofstream & outFile);
     void get_mismatch_count_histogram(std::ofstream & outFile);
     void get_read_length_histogram(std::ofstream & outFile);
@@ -334,7 +255,6 @@ private:
     seqan::String<unsigned> scposcount_3prime;
 
     //Count per read -> histogram
-
     unsigned DIcount;
     unsigned qualcount_readnr;
     seqan::String<unsigned> Ncount;
@@ -345,12 +265,9 @@ private:
     seqan::String<unsigned> mapQ;
     seqan::String<unsigned> readLength;
     seqan::String<unsigned> insertSize;
-//    uint64_t mean_insert_size;
-//    uint insert_count;
     seqan::String<unsigned> mismatch;
 
     //functions
-
     void resize_strings();
     void read_counts(seqan::CharString & record, seqan::CharString & qual);
     void read_length(seqan::CharString & record);
@@ -396,7 +313,7 @@ private:
     void update_vectors();
 
 };
-//
+
 template <typename TString>
 void print(TString & str, std::ofstream & outFile){
    typedef typename seqan::Iterator< TString, seqan::Standard>::Type TIterator;
@@ -444,57 +361,6 @@ int main(int argc, char const ** argv)
         std::cerr << "ERROR: Could not read header from BAM file " << opt.bamFile << "\n";
         return 1;
     }
-
-//    OverallNumbers qc;
-//    seqan::CharString myseq = "AAANAAAAAAAAACCCCCCCCNNTTTNGGGGGGGGGG";
-//    qc.countAdapterKmers(myseq);
-//    qc.ten_most_abundant_kmers(outFile);
-//    outFile << "8mer_count"; qc.get_adapterKmercount(outFile);
-//
-//    return 0;
-
-//    seqan::DnaString text1  = "NTTTTTTT";
-//    seqan::Shape<seqan::Dna, seqan::UngappedShape<8> > myShape1;
-//
-//    seqan::Dna5String text2 = "NTTTTTTT";
-//    seqan::Shape<seqan::Dna5, seqan::UngappedShape<8> > myShape2;
-//
-//    seqan::Dna5String text3 = "NTTTTTTT";
-//    seqan::Shape<seqan::Dna, seqan::UngappedShape<8> > myShape3;
-//
-//    seqan::DnaString text4  = "NTTTTTTT";
-//    seqan::Shape<seqan::Dna5, seqan::UngappedShape<8> > myShape4;
-//
-//    // loop using hashInit() and hashNext() starts at position 0
-//    hashInit(myShape1, begin(text1));
-//    for (unsigned i = 0; i < length(text1) - length(myShape1) + 1; ++i)
-//        std::cout << hashNext(myShape1, begin(text1) + i) << '\t';
-//    std::cout << std::endl;
-//
-//    hashInit(myShape2, begin(text2));
-//    for (unsigned i = 0; i < length(text2) - length(myShape2) + 1; ++i)
-//        std::cout << hashNext(myShape2, begin(text2) + i) << '\t';
-//    std::cout << std::endl;
-//
-//    hashInit(myShape3, begin(text3));
-//    for (unsigned i = 0; i < length(text3) - length(myShape3) + 1; ++i)
-//        std::cout << hashNext(myShape3, begin(text3) + i) << '\t';
-//    std::cout << std::endl;
-//
-//    hashInit(myShape4, begin(text4));
-//    for (unsigned i = 0; i < length(text4) - length(myShape4) + 1; ++i)
-//        std::cout << hashNext(myShape4, begin(text4) + i) << '\t';
-//    std::cout << std::endl;
-//    seqan::String<seqan::String<uint64_t> > somecount;
-//    std::cout << "somedna length" << length(somecount) << std::endl;
-//    QualityCheck qc(opt.isize);
-//    seqan::CharString myseq  = "GGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCGGGGGCCCCCG";
-//    seqan::CharString myqual = "FFFFFJJFJJ<AJJF<FJJJ<JJJJFJJJJJFJJFJJ<-FJJJJAAAJJ-JJJJJ-FF<A-FFFAFJJJJFJJJJFAJ<7FFJJ<JJFJJAJF-<F--FJJJJFJ<JJJFA<FAAJJAFF-FFJ-FJJFFJA<A-7-<A--FJJJA-AAFF";
-//    qc.check_read_len(myseq, myqual);
-//    qc.get_count(myseq, myqual);
-//    qc.get_GC_count_histogram(outFile);
-//
-//    return 0;
 
     // set up chromset
     seqan::StringSet<seqan::String<char> > chromSet;
@@ -548,7 +414,6 @@ int main(int argc, char const ** argv)
     seqan::String<OverallNumbers> rall;
     resize(rall,lanecount);
 
-    //std::ios_base::sync_with_stdio(false); //Check memleak bc of this line
     size_t qsize = opt.q_cutoff.size();
     size_t ksize = opt.klist.size();
     // Init ReadQualityHasher
@@ -689,16 +554,9 @@ int main(int argc, char const ** argv)
                         rall[l].discordant +=1;
                     }
                     if (!seqan::hasFlagUnmapped(record)){
-                        r2[l].cigar_count(record); //
-                        r2[l].map_Q(record.mapQ); //
-                        r2[l].mis_match(tagsDict); //
-//                        if (!seqan::hasFlagNextUnmapped(record))
-//                        {
-//                            if (chrIdset.count(record.rNextId)!=0)
-//                            {
-//                                r2[l].insert_size(record.tLen);
-//                            }
-//                        }
+                        r2[l].cigar_count(record);
+                        r2[l].map_Q(record.mapQ);
+                        r2[l].mis_match(tagsDict);
                     }
                 }
                 if (!seqan::hasFlagUnmapped(record))
@@ -720,8 +578,7 @@ int main(int argc, char const ** argv)
     }
 
     for (std::map<seqan::CharString,int>::iterator it=laneNames.begin(); it!=laneNames.end(); ++it)
-    //for (unsigned lid = 0; lid < lanecount; ++lid)
-        {
+    {
             outFile << "pn " << pn << std::endl;
             outFile << "lane " << it->first << std::endl;
             int lid = it->second;
@@ -729,7 +586,6 @@ int main(int argc, char const ** argv)
             r1[lid].avgQualPerPos();
             r2[lid].avgQualPerPos();
 
-            //seqan::clear(record);
             outFile << "total_read_pairs " << rall[lid].readcount/2 << std::endl;
             outFile << "total_bps " << rall[lid].totalbps << std::endl;
             outFile << "supplementary_alignments " << rall[lid].supplementary << std::endl;
@@ -742,7 +598,6 @@ int main(int argc, char const ** argv)
             outFile << "discordant_read_pairs " << rall[lid].discordant << std::endl;
             outFile << "genome_coverage_histogram"; rall[lid].get_poscov(outFile);
             outFile << "insert_size_histogram"; r1[lid].get_insert_size_histogram(outFile);
-//            outFile << "mean_insert_size"; r1[lid].get_mean_insert_size(outFile);
             outFile << "read_length_histogram_first"; r1[lid].get_read_length_histogram(outFile);
             outFile << "read_length_histogram_second"; r2[lid].get_read_length_histogram(outFile);
             outFile << "N_count_histogram_first"; r1[lid].get_N_count_histogram(outFile);
@@ -777,7 +632,6 @@ int main(int argc, char const ** argv)
             outFile << "soft_clipping_3_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_3prime(outFile);
             rall[lid].ten_most_abundant_kmers(outFile);
             outFile << "8mer_count"; rall[lid].get_adapterKmercount(outFile);
-            //outFile << "8mer_abundance_histogram_binsize_"; rall[lid].get_kmer_histogram(outFile);
             for (size_t i = 0; i < qsize; i++) {
                 for (size_t j = 0; j < ksize; j++) {
                     outFile << opt.klist[j] << "mer_count_after_qual_clipping_"<< opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].get_sumCount() << std::endl;
@@ -862,10 +716,6 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
         {
             cntN +=1;
         }
-//        if (((int) seqan::ordValue(*itseq) == 1) || ((int) seqan::ordValue(*itseq) == 2)) // count number of GCs per read
-//        {
-//            cntGC +=1;
-//        }
         if ((*itseq == 'C') || (*itseq == 'G')) // count number of GCs per read
         {
             cntGC +=1;
@@ -882,18 +732,9 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
         ++j;
     }
 
-//    if (length(Ncount) <= cntN){
-//        resize(Ncount, cntN+1, 0);
-//        }
     Ncount[cntN] += 1; //count number of Ns per read
-//    std::cout << "GCcountlength " << length(GCcount) << std::endl;
-//    std::cout << "cntGC " << cntGC << std::endl;
-//    if (length(GCcount) <= cntGC){
-//        resize(GCcount, cntGC+1, 0);
-//        }
+
     GCcount[cntGC] +=1;
-//    if (cntGC == 151)
-//        std::cout << seq << " " << double(avgQual)/length(seq) << std::endl;
 
     if (length(averageQual) <= ceil(double(avgQual)/length(seq))){
         resize(averageQual, ceil(double(avgQual)/length(seq))+1, 0);
@@ -922,8 +763,6 @@ void QualityCheck::insert_size(int & tlen)
 {
     unsigned index = abs(tlen);
 
-//    mean_insert_size +=index;
-//    insert_count +=1;
     if (index >  maxtlen){
         index = maxtlen;
         }
@@ -1053,12 +892,6 @@ void QualityCheck::get_insert_size_histogram(std::ofstream & outFile)
 {
     print(insertSize, outFile);
 }
-//void QualityCheck::get_mean_insert_size(std::ofstream & outFile)
-//{
-//    std::cout << mean_insert_size << " " << insert_count << std::endl;
-//    double mean_is = mean_insert_size/insert_count;
-//    outFile << " " << mean_is << std::endl;
-//}
 void QualityCheck::get_mapping_qual_histogram(std::ofstream & outFile)
 {
     print(mapQ, outFile);
@@ -1081,7 +914,6 @@ OverallNumbers::OverallNumbers() : supplementary(0), duplicates(0), QCfailed(0),
 first(true), vsize(1000), covsize(100), shift(0), id(0)
 {
     resize(adapterKmercount, 65536, 0); //TTTTTTTT = 65535
-    //resize(kmer_histogram, 300, 0);
 }
 
 void OverallNumbers::update_vectors()
@@ -1196,21 +1028,7 @@ void OverallNumbers::get_poscov(std::ofstream & outFile)
 {
     print(poscov, outFile);
 }
-//void OverallNumbers::get_kmer_histogram(std::ofstream & outFile)
-//{
-//    double nrofbins=1000;
-//    unsigned binsize = ceil(ten_max_kmers[0]/nrofbins);
-//    resize(kmer_histogram, nrofbins, 0);
-//
-//    seqan::Iterator<seqan::String<unsigned>, seqan::Rooted>::Type it = begin(adapterKmercount);
-//    seqan::Iterator<seqan::String<unsigned>, seqan::Rooted>::Type itEnd = end(adapterKmercount);
-//    for (; it != itEnd; goNext(it))
-//    {
-//        kmer_histogram[(unsigned)floor(*it/double(binsize))] +=1;
-//    }
-//    outFile << binsize;
-//    print(kmer_histogram, outFile);
-//}
+
 void OverallNumbers::get_adapterKmercount(std::ofstream & outFile)
 {
     print(adapterKmercount, outFile);

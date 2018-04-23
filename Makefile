@@ -1,14 +1,15 @@
-
-# include SeqAn libraries
-#CXXFLAGS+=-I/nfs/prog/bioinfo/u/arnaos/seqanProject/seqan-1.4.1/core/include
+# Set k-mer size for k-mer stream
 MAX_KMER_SIZE=64
-CXXFLAGS+=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -I../libraries/seqan-1.4.2/include
+CXXFLAGS+=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
+
+# Include SeqAn libraries
+CXXFLAGS+=-I../libraries/seqan-1.4.2/include
 
 # RELEASE build 
 CXXFLAGS+= -O3 -DSEQAN_ENABLE_TESTING=0 -DSEQAN_ENABLE_DEBUG=0 -DSEQAN_HAS_ZLIB=1 -g
 LDLIBS=-lz -std=c++0x
 
-# set std to c++0x to allow using 'auto' etc.
+# Set std to c++0x to allow using 'auto' etc.
 CXXFLAGS+=-std=c++0x
 
 all: bamqualcheck
