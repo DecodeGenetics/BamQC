@@ -134,7 +134,7 @@ class ReadQualityHasher {
         void operator()(const char* s, size_t l, const char* q, size_t ql) {
             // create hashes for all k-mers
             // operate on hashes
-            size_t i=0,j=0;
+            size_t i=0, j=0;
             bool last_valid = false;
             if (l < k) {
                 return;
@@ -144,7 +144,7 @@ class ReadQualityHasher {
                 char c = s[j];
                 if (c != 'N' && c != 'n' && (q[j] >= (char) (q_base+q_cutoff))) {
                     if (last_valid) {
-                        hf.update(s[i],s[j]);
+                        hf.update(s[i], s[j]);
                         i++;
                         j++;
                     }
@@ -204,7 +204,7 @@ class ReadQualityHasher {
         }
 
     private:
-        size_t q_cutoff,q_base;
+        size_t q_cutoff, q_base;
         RepHash hf;
         size_t k;
         StreamCounter sc;
@@ -476,104 +476,101 @@ int main(int argc, char const ** argv)
             }
         }
 
-        if (!hasFlagSupplementary(record))
+        if (!hasFlagSupplementary(record)) {
+            rall[l].supplementary +=1;
+            continue;
+        }
+        if (hasFlagDuplicate(record)){
+            rall[l].duplicates +=1;
+            continue;
+        }
+        if (hasFlagQCNoPass(record)){
+            rall[l].QCfailed +=1;
+            continue;
+        }
+        if (hasFlagSecondary(record)){
+            rall[l].not_primary_alignment +=1;
+            continue;
+        }
+        if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
+            if (tripletCounting(counts, record, nameStore, genome, tripletCountingOptions) != 0) return 1;
+        }
+   
+        if (hasFlagRC(record)) // check if read is reversed complemented
         {
-            if (hasFlagDuplicate(record)){
-                rall[l].duplicates +=1;
-            }
-            if (hasFlagQCNoPass(record)){
-                rall[l].QCfailed +=1;
-            }
-            if (hasFlagSecondary(record)){
-                rall[l].not_primary_alignment +=1;
-            }
-            if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
-
-                if (tripletCounting(counts, record, nameStore, genome, tripletCountingOptions) != 0) return 1;
-            }
-
-            if (hasFlagRC(record)) // check if read is reversed complemented
+            reverseComplement(record.seq);
+            reverse(record.qual);
+            reverse(record.cigar);
+        }
+        // All chromosomes
+        rall[l].readcount +=1;
+        rall[l].totalbps += length(record.seq);
+        if (seqan::hasFlagFirst(record))
+        {
+            r1[l].check_read_len(record.seq, record.qual); // stores dequence as String of Dna5 and checks if length of seq and qual is the same
+            r1[l].get_count(record.seq, record.qual); // resize_string, read_count, read_length
+            if (seqan::hasFlagUnmapped(record))
             {
-                reverseComplement(record.seq);
-                reverse(record.qual);
-                reverse(record.cigar);
+                rall[l].firstunmapped +=1; // counts number of unmapped reads
+                if (seqan::hasFlagNextUnmapped(record)) {
+                    rall[l].bothunmapped +=1; // counts number of reads where both first and second are unmapped
+                }
             }
+        }
+        else if (seqan::hasFlagLast(record))
+        {
+            r2[l].check_read_len(record.seq, record.qual);
+            r2[l].get_count(record.seq, record.qual); // resize_string, read_count, read_length
+            if (seqan::hasFlagUnmapped(record)){
+                rall[l].secondunmapped +=1; //
+            }
+        }
+        else
+        {
+            std::cerr << "ERROR: No first or second flag in read in:  " << opt.bamFile << "\n";
+            return 1;
+        }
 
-            // All chromosomes
-            rall[l].readcount +=1;
-            rall[l].totalbps += length(record.seq);
-
+        // only chromosome chr1, chr2, ... chr22
+        if (chrIdset.count(record.rID)!=0)
+        {
             if (seqan::hasFlagFirst(record))
             {
-                r1[l].check_read_len(record.seq, record.qual); // stores dequence as String of Dna5 and checks if length of seq and qual is the same
-                r1[l].get_count(record.seq, record.qual); // resize_string, read_count, read_length
-                if (seqan::hasFlagUnmapped(record))
+                if (!seqan::hasFlagUnmapped(record))
                 {
-                    rall[l].firstunmapped +=1; // counts number of unmapped reads
-                    if (seqan::hasFlagNextUnmapped(record)) {
-                        rall[l].bothunmapped +=1; // counts number of reads where both first and second are unmapped
+                    r1[l].cigar_count(record); //soft-clipping per read positions and histogram: soft-clipping at beginning and end seperately
+                    r1[l].map_Q(record.mapQ); // histogram: mapping quality
+                    r1[l].mis_match(tagsDict); // histogram: mismatches
+                    if (!seqan::hasFlagNextUnmapped(record))
+                    {
+                        if (chrIdset.count(record.rNextId)!=0)
+                        {
+                            r1[l].insert_size(record.tLen);
+                        }
                     }
                 }
             }
             else if (seqan::hasFlagLast(record))
             {
-                r2[l].check_read_len(record.seq, record.qual);
-                r2[l].get_count(record.seq, record.qual); // resize_string, read_count, read_length
-                if (seqan::hasFlagUnmapped(record)){
-                    rall[l].secondunmapped +=1; //
+                if (!seqan::hasFlagAllProper(record) && (!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record))) {
+                    rall[l].discordant +=1;
+                }
+                if (!seqan::hasFlagUnmapped(record)){
+                    r2[l].cigar_count(record);
+                    r2[l].map_Q(record.mapQ);
+                    r2[l].mis_match(tagsDict);
                 }
             }
-            else
+            if (!seqan::hasFlagUnmapped(record))
             {
-                std::cerr << "ERROR: No first or second flag in read in:  " << opt.bamFile << "\n";
-                return 1;
-            }
-
-            // only chromosome chr1, chr2, ... chr22
-            if (chrIdset.count(record.rID)!=0)
-            {
-                if (seqan::hasFlagFirst(record))
-                {
-                    if (!seqan::hasFlagUnmapped(record))
-                    {
-                        r1[l].cigar_count(record); //soft-clipping per read positions and histogram: soft-clipping at beginning and end seperately
-                        r1[l].map_Q(record.mapQ); // histogram: mapping quality
-                        r1[l].mis_match(tagsDict); // histogram: mismatches
-                        if (!seqan::hasFlagNextUnmapped(record))
-                        {
-                            if (chrIdset.count(record.rNextId)!=0)
-                            {
-                                r1[l].insert_size(record.tLen);
-                            }
-                        }
-                    }
-                }
-                else if (seqan::hasFlagLast(record))
-                {
-                    if (!seqan::hasFlagAllProper(record) && (!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record))) {
-                        rall[l].discordant +=1;
-                    }
-                    if (!seqan::hasFlagUnmapped(record)){
-                        r2[l].cigar_count(record);
-                        r2[l].map_Q(record.mapQ);
-                        r2[l].mis_match(tagsDict);
-                    }
-                }
-                if (!seqan::hasFlagUnmapped(record))
-                {
-                    rall[l].coverage(record);
-                }
-            }
-
-            rall[l].countAdapterKmers(record.seq); //count adapter 8-mers
-
-            if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
-
-                RunBamStream(sps[l], record.seq, record.qual, qsize, ksize);
+                rall[l].coverage(record);
             }
         }
-        else {
-            rall[l].supplementary +=1;
+
+        rall[l].countAdapterKmers(record.seq); //count adapter 8-mers
+
+        if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
+            RunBamStream(sps[l], record.seq, record.qual, qsize, ksize);
         }
     }
 
@@ -672,7 +669,7 @@ void QualityCheck::resize_strings()
 {
     // count for nucleotides and qualtype for each read position:
     // Increase number of counters if dnaseq is longer than the previous reads.
-    if (length(dnacount) < length(dnaseq)) //This should only be true ones...
+    if (length(dnacount) < length(dnaseq)) //This should only be true once...
     {
         unsigned oldSize = length(dnacount);
         resize(dnacount, length(dnaseq), 0);
