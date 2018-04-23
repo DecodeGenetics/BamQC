@@ -1,7 +1,3 @@
-bamqualcheck.o
-hash.o
-KmerIterator.o
-Kmer.o
-lsb.o
-RepHash.o
+build/*.o
+build/*/*.o
 bamqualcheck

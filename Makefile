@@ -1,3 +1,12 @@
+TARGET = bamqualcheck
+BUILD_DIR = ./build
+SRC_DIR = ./src
+
+HDRS := $(SRC_DIR)/TripletCounting.hpp $(SRC_DIR)/version.h
+
+SRCS := $(shell find $(SRC_DIR)/kmerstream -type f -name *.cpp)
+OBJS := $(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(SRCS:.cpp=.o))
+
 # Set k-mer size for k-mer stream
 MAX_KMER_SIZE=64
 CXXFLAGS+=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
@@ -5,27 +14,29 @@ CXXFLAGS+=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
 # Include SeqAn libraries
 CXXFLAGS+=-I../libraries/seqan-1.4.2/include
 
+# Set std to c++0x to allow using 'auto' etc.
+CXXFLAGS+=-std=c++0x
+
 # RELEASE build 
 CXXFLAGS+= -O3 -DSEQAN_ENABLE_TESTING=0 -DSEQAN_ENABLE_DEBUG=0 -DSEQAN_HAS_ZLIB=1 -g
 LDLIBS=-lz -std=c++0x
 
-# Set std to c++0x to allow using 'auto' etc.
-CXXFLAGS+=-std=c++0x
+all: $(TARGET)
 
-all: bamqualcheck
+$(TARGET): $(BUILD_DIR) $(BUILD_DIR)/$(TARGET).o $(OBJS)
+	$(CXX) $(BUILD_DIR)/$(TARGET).o $(OBJS) -o $@ $(LDLIBS)
 
-OBJECTS = lsb.o RepHash.o Kmer.o KmerIterator.o hash.o
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR) $(BUILD_DIR)/kmerstream
 
-bamqualcheck: bamqualcheck.o $(OBJECTS)
-	$(CXX) $(OBJECTS) bamqualcheck.o $(LDFLAGS) -o bamqualcheck $(LDLIBS)
+$(BUILD_DIR)/$(TARGET).o: $(SRC_DIR)/$(TARGET).cpp $(HDRS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/kmerstream/RepHash.o: $(SRC_DIR)/kmerstream/RepHash.cpp $(SRC_DIR)/kmerstream/RepHash.hpp $(SRC_DIR)/kmerstream/mersennetwister.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-lsb.o: lsb.cpp lsb.hpp
-bamqualcheck.o: bamqualcheck.cpp StreamCounter.hpp
-Kmer.o: Kmer.cpp Kmer.hpp
-KmerIterator.o: KmerIterator.cpp KmerIterator.hpp
-hash.o: hash.cpp hash.hpp
-RepHash.o: RepHash.cpp RepHash.hpp
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(SRC_DIR)/%.hpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o ./bamqualcheck
+	rm -f $(BUILD_DIR)/$(TARGET).o $(OBJS) $(TARGET)

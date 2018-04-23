@@ -22,21 +22,6 @@ struct TripletCountingOptions
     {}
 };
 
-// --------------------------------------------------------------------------
-
-/*std::string
-getReferencePath(std::string & ref)
-{
-    if (ref == "b36")
-        return "/odinn/data/reference/Homo_sapiens-NCBI-build36/Sequence/WholeGenomeFasta/genome.fa";
-    else if (ref == "b37")
-        return "/odinn/data/reference/Homo_sapiens-deCODE-build37/Sequence/WholeGenomeFasta/genome.fa";
-    else if (ref == "b38")
-        return "/odinn/data/reference/Homo_sapiens-deCODE-hg38/Sequence/WholeGenomeFasta/genome.fa";
-    else
-        return ref;
-}*/
-
 // ==========================================================================
 // struct Counts
 // ==========================================================================

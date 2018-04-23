@@ -2,9 +2,11 @@
 #include <seqan/bam_io.h>
 #include <seqan/index.h>
 
-#include "StreamCounter.hpp"
-#include "RepHash.hpp"
+#include "kmerstream/StreamCounter.hpp"
+#include "kmerstream/RepHash.hpp"
+
 #include "TripletCounting.hpp"
+
 #include "version.h"
 
 struct ProgramOptions
