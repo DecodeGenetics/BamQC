@@ -480,7 +480,7 @@ int main(int argc, char const ** argv)
         }
 
         // Check the four highest flags and continue if any is set.
-        if (!hasFlagSupplementary(record)) {
+        if (hasFlagSupplementary(record)) {
             rall[l].supplementary +=1;
             continue;
         }
