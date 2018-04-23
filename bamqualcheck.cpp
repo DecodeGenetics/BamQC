@@ -430,6 +430,7 @@ int main(int argc, char const ** argv)
             }
         }
     }
+
     // Init triplet counting
     seqan::String<TripletCounts> counts;
     resize(counts, 64);
@@ -476,6 +477,7 @@ int main(int argc, char const ** argv)
             }
         }
 
+        // Check the four highest flags and continue if any is set.
         if (!hasFlagSupplementary(record)) {
             rall[l].supplementary +=1;
             continue;
@@ -492,10 +494,12 @@ int main(int argc, char const ** argv)
             rall[l].not_primary_alignment +=1;
             continue;
         }
-        if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
-            if (tripletCounting(counts, record, nameStore, genome, tripletCountingOptions) != 0) return 1;
+
+        // Triplet counting.
+        if (tripletCounting(counts, record, nameStore, genome, tripletCountingOptions) != 0) {
+            return 1;
         }
-   
+
         if (hasFlagRC(record)) // check if read is reversed complemented
         {
             reverseComplement(record.seq);
@@ -603,21 +607,17 @@ int main(int argc, char const ** argv)
             outFile << "GC_content_histogram_second"; r2[lid].get_GC_count_histogram(outFile);
             outFile << "average_base_qual_histogram_first"; r1[lid].get_average_base_qual_histogram(outFile);
             outFile << "average_base_qual_histogram_second"; r2[lid].get_average_base_qual_histogram(outFile);
-            //outFile << "soft_clipping_5_prime_histogram_first"; r1[lid].get_soft_clipping_begin_histogram(outFile);
-            //outFile << "soft_clipping_5_prime_histogram_second"; r2[lid].get_soft_clipping_begin_histogram(outFile);
-            //outFile << "soft_clipping_3_prime_histogram_first"; r1[lid].get_soft_clipping_end_histogram(outFile);
-            //outFile << "soft_clipping_3_prime_histogram_second"; r2[lid].get_soft_clipping_end_histogram(outFile);
             outFile << "mapping_qual_histogram_first"; r1[lid].get_mapping_qual_histogram(outFile);
             outFile << "mapping_qual_histogram_second"; r2[lid].get_mapping_qual_histogram(outFile);
             outFile << "mismatch_count_histogram_first"; r1[lid].get_mismatch_count_histogram(outFile);
             outFile << "mismatch_count_histogram_second"; r2[lid].get_mismatch_count_histogram(outFile);
             outFile << "Ns_by_position_first"; r1[lid].get_DNA_by_position(4, outFile);
             outFile << "Ns_by_position_second"; r2[lid].get_DNA_by_position(4, outFile);
-            outFile << "As_by_position_first";r1[lid].get_DNA_by_position(0, outFile);
+            outFile << "As_by_position_first"; r1[lid].get_DNA_by_position(0, outFile);
             outFile << "As_by_position_second"; r2[lid].get_DNA_by_position(0, outFile);
-            outFile << "Cs_by_position_first";r1[lid].get_DNA_by_position(1, outFile);
+            outFile << "Cs_by_position_first"; r1[lid].get_DNA_by_position(1, outFile);
             outFile << "Cs_by_position_second"; r2[lid].get_DNA_by_position(1, outFile);
-            outFile << "Gs_by_position_first";r1[lid].get_DNA_by_position(2, outFile);
+            outFile << "Gs_by_position_first"; r1[lid].get_DNA_by_position(2, outFile);
             outFile << "Gs_by_position_second"; r2[lid].get_DNA_by_position(2, outFile);
             outFile << "Ts_by_position_first"; r1[lid].get_DNA_by_position(3, outFile);
             outFile << "Ts_by_position_second"; r2[lid].get_DNA_by_position(3, outFile);
