@@ -384,7 +384,7 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
                 {
                     std::cerr << "ERROR: Could not write record to stdout \n";
                 }
-                return 1;
+                return -1;
             }
         }
     }
@@ -396,6 +396,10 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
 
 int main(int argc, char const ** argv)
 {
+    // Typedefs for name store, cache, and BAM I/O context.
+    typedef seqan::StringSet<seqan::CharString> TNameStore;
+    typedef seqan::NameStoreCache<TNameStore>   TNameStoreCache;
+    typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
 
     ProgramOptions opt;
     seqan::ArgumentParser::ParseResult res = parseCommandLine(opt, argc, argv); // Parse the command line.
@@ -403,6 +407,7 @@ int main(int argc, char const ** argv)
     {
         return res == seqan::ArgumentParser::PARSE_ERROR;
     }
+
     seqan::Stream<seqan::Bgzf> inStream; // Open BGZF Stream for reading.
     if (!open(inStream, toCString(opt.bamFile), "r")) //check if toCstring is needed
     {
@@ -416,9 +421,6 @@ int main(int argc, char const ** argv)
         return 1;
     }
 
-    typedef seqan::StringSet<seqan::CharString> TNameStore; // Setup name store, cache, and BAM I/O context.
-    typedef seqan::NameStoreCache<TNameStore>   TNameStoreCache;
-    typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
     TNameStore      nameStore;
     TNameStoreCache nameStoreCache(nameStore);
     TBamIOContext   context(nameStore, nameStoreCache);
@@ -502,6 +504,7 @@ int main(int argc, char const ** argv)
         }
         seqan::BamTagsDict tagsDict(record.tags);
         unsigned l = getLane(record, tagsDict, laneNames, context);
+        if (l == -1) return 1;
 
         // Check the four highest flags and continue in some cases.
         if (hasFlagSupplementary(record)) {
