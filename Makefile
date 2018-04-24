@@ -2,9 +2,8 @@ TARGET = bamqualcheck
 BUILD_DIR = ./build
 SRC_DIR = ./src
 
-HDRS := $(SRC_DIR)/TripletCounting.hpp $(SRC_DIR)/version.h
-
-SRCS := $(shell find $(SRC_DIR)/kmerstream -type f -name *.cpp)
+HDRS := $(wildcard $(SRC_DIR)/*.hpp) $(wildcard $(SRC_DIR)/*.h)
+SRCS := $(wildcard $(SRC_DIR)/kmerstream/*.cpp)
 OBJS := $(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(SRCS:.cpp=.o))
 
 # Set k-mer size for k-mer stream

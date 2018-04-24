@@ -1,7 +1,10 @@
+#ifndef TRIPLET_COUNTING_H_
+#define TRIPLET_COUNTING_H_
+
 #include <seqan/seq_io.h>
 
 // --------------------------------------------------------------------------
-// Struct TripletCountingOptions
+// STRUCT TripletCountingOptions
 // --------------------------------------------------------------------------
 
 struct TripletCountingOptions
@@ -20,7 +23,7 @@ struct TripletCountingOptions
 };
 
 // ==========================================================================
-// struct Counts
+// STRUCT Counts
 // ==========================================================================
 
 struct TripletCounts
@@ -51,7 +54,7 @@ contextToIndex(seqan::DnaString & context)
 }
 
 // --------------------------------------------------------------------------
-// Struct Genome
+// STRUCT Genome
 // --------------------------------------------------------------------------
 
 struct Genome
@@ -95,7 +98,7 @@ readFastaRecord(Genome & genome)
 }
 
 // ==========================================================================
-// Function alignmentScore()
+// FUNCTION alignmentScore()
 // ==========================================================================
 
 int
@@ -121,7 +124,7 @@ alignmentScore(seqan::BamAlignmentRecord & read)
 }
 
 // ==========================================================================
-// Function checkFlagsAndQuality()
+// FUNCTION checkFlagsAndQuality()
 // ==========================================================================
 
 int
@@ -159,7 +162,7 @@ checkFlagsAndQuality(seqan::BamAlignmentRecord & read, TripletCountingOptions & 
 }
 
 // ==========================================================================
-// Function countPosition()
+// FUNCTION countPosition()
 // ==========================================================================
 
 void
@@ -180,7 +183,7 @@ countPosition(TripletCounts & counts, seqan::Dna5 base, seqan::BamAlignmentRecor
 }
 
 // ==========================================================================
-// Function countBasesInTriplets()
+// FUNCTION countBasesInTriplets()
 // ==========================================================================
 
 void
@@ -227,7 +230,7 @@ countBasesInTriplets(seqan::String<TripletCounts> & counts, seqan::BamAlignmentR
 }
 
 // ==========================================================================
-// Function tripletCounting()
+// FUNCTION tripletCounting()
 // ==========================================================================
 
 template<typename TNameStore>
@@ -256,7 +259,7 @@ tripletCounting(seqan::String<TripletCounts> & counts,
 }
 
 // --------------------------------------------------------------------------
-// Function writeTripletCounts()
+// FUNCTION writeTripletCounts()
 // --------------------------------------------------------------------------
 
 void
@@ -292,3 +295,5 @@ writeTripletCounts(std::ofstream & outfile, seqan::String<TripletCounts> & count
 }
 
 // --------------------------------------------------------------------------
+
+#endif  // TRIPLET_COUNTING_H_
