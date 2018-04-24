@@ -6,9 +6,6 @@
 
 struct TripletCountingOptions
 {
-    std::string bamfile;
-    std::string reference;
-
     // Quality criteria
     seqan::CharString flags;
     int minBaseQ;
@@ -18,7 +15,7 @@ struct TripletCountingOptions
     int minAlignmentScore;
 
     TripletCountingOptions() :
-        reference("b38"), flags("1100xxxx000x"), minBaseQ(20), minBaseQAscii(53), minMapQ(60), maxClipped(0), minAlignmentScore(50)
+        flags("1100xxxx000x"), minBaseQ(20), minBaseQAscii(53), minMapQ(60), maxClipped(0), minAlignmentScore(50)
     {}
 };
 
@@ -85,12 +82,15 @@ bool
 readFastaRecord(Genome & genome)
 {
     seqan::CharString chrom;
-    if (readRecord(genome.chromName, chrom, genome.stream) != 0)
+    seqan::CharString chromName;
+    if (readRecord(chromName, chrom, genome.stream) != 0)
     {
         std::cout << "ERROR: Could not read fasta record from " << genome.filename << std::endl;
         return 1;
     }
     genome.chrom = chrom;
+    std::string s = toCString(chromName);
+    genome.chromName = s.substr(0, s.find(' '));
     return 0;
 }
 
@@ -187,7 +187,7 @@ void
 countBasesInTriplets(seqan::String<TripletCounts> & counts, seqan::BamAlignmentRecord & read, seqan::Dna5String & chrom, char minBaseQAscii)
 {
     typedef seqan::Iterator<seqan::String<seqan::CigarElement<> > >::Type TIter;
-    
+
     // Initialize iterator over CIGAR string.
     TIter it = begin(read.cigar);
     size_t cigarCount = (*it).count - 1;
@@ -243,7 +243,7 @@ tripletCounting(seqan::String<TripletCounts> & counts,
     if (res == 0) return 0;
 
     seqan::CharString recordChrom = nameStore[record.rID];
-    while (recordChrom > genome.chromName)
+    while (recordChrom != genome.chromName)
     {
         // Read the next chromosome of reference genome.
         if (readFastaRecord(genome) != 0) return 1;
