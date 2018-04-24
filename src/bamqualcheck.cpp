@@ -233,18 +233,20 @@ public:
 
     //print functions
     void get_DNA_by_position(int c, std::ofstream & outFile);
-    void get_avg_base_qual_by_pos(std::ofstream & outFile);
-    void get_soft_clip_by_pos_5prime(std::ofstream & outFile);
-    void get_soft_clip_by_pos_3prime(std::ofstream & outFile);
-    void get_N_count_histogram(std::ofstream & outFile);
-    void get_GC_count_histogram(std::ofstream & outFile);
-    void get_soft_clipping_begin_histogram(std::ofstream & outFile);
-    void get_soft_clipping_end_histogram(std::ofstream & outFile);
-    void get_average_base_qual_histogram(std::ofstream & outFile);
-    void get_insert_size_histogram(std::ofstream & outFile);
-    void get_mapping_qual_histogram(std::ofstream & outFile);
-    void get_mismatch_count_histogram(std::ofstream & outFile);
-    void get_read_length_histogram(std::ofstream & outFile);
+
+    //Count per read position
+    seqan::String<double> avgqualcount;
+    seqan::String<unsigned> scposcount_5prime;
+    seqan::String<unsigned> scposcount_3prime;
+
+    //Count per read -> histogram
+    seqan::String<unsigned> averageQual;
+    seqan::String<unsigned> Ncount;
+    seqan::String<uint64_t> GCcount;
+    seqan::String<unsigned> insertSize;
+    seqan::String<unsigned> mapQ;
+    seqan::String<unsigned> readLength;
+    seqan::String<unsigned> mismatch;
 
 private:
     seqan::CharString softclipping;
@@ -252,22 +254,10 @@ private:
     //Count per read position
     seqan::String<seqan::String<uint64_t> > dnacount;
     seqan::String<uint64_t> qualcount;
-    seqan::String<double> avgqualcount;
-    seqan::String<unsigned> scposcount_5prime;
-    seqan::String<unsigned> scposcount_3prime;
 
     //Count per read -> histogram
     unsigned DIcount;
     unsigned qualcount_readnr;
-    seqan::String<unsigned> Ncount;
-    seqan::String<uint64_t> GCcount;
-    seqan::String<unsigned> sccount_begin;
-    seqan::String<unsigned> sccount_end;
-    seqan::String<unsigned> averageQual;
-    seqan::String<unsigned> mapQ;
-    seqan::String<unsigned> readLength;
-    seqan::String<unsigned> insertSize;
-    seqan::String<unsigned> mismatch;
 
     //functions
     void resize_strings();
@@ -290,11 +280,12 @@ public:
     unsigned secondunmapped;
     unsigned discordant;
 
+    seqan::String<unsigned> poscov;
+    seqan::String<uint64_t> adapterKmercount;
+
     void coverage(seqan::BamAlignmentRecord & record);
     void countAdapterKmers(seqan::CharString & seq);
-    void get_poscov(std::ofstream & outFile);
     void get_kmer_histogram(std::ofstream & outFile);
-    void get_adapterKmercount(std::ofstream & outFile);
     void ten_most_abundant_kmers(std::ofstream & outFile);
 
 private:
@@ -306,8 +297,6 @@ private:
     seqan::Shape<seqan::Dna, seqan::UngappedShape<8> > myShape;
     seqan::String<unsigned> v1;
     seqan::String<unsigned> v2;
-    seqan::String<unsigned> poscov;
-    seqan::String<uint64_t> adapterKmercount;
     seqan::String<unsigned> kmer_histogram;
     seqan::String<uint64_t> ten_max_kmers; //todo move to class and make seperate print function
     seqan::StringSet<seqan::DnaString> adapterSet;
@@ -315,16 +304,6 @@ private:
     void update_vectors();
 
 };
-
-template <typename TString>
-void print(TString & str, std::ofstream & outFile){
-   typedef typename seqan::Iterator< TString, seqan::Standard>::Type TIterator;
-   for(TIterator it = begin(str, seqan::Standard()); it != end(str, seqan::Standard()); ++it)
-    {
-      outFile << " " << *it;
-    }
-    outFile << std::endl;
-}
 
 void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq, seqan::CharString & qual, size_t & qsize, size_t & ksize);
 
@@ -391,6 +370,21 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
 }
 
 
+// -----------------------------------------------------------------------------
+// FUNCTION printString()
+// -----------------------------------------------------------------------------
+
+template <typename TString>
+void printString(TString & str, std::ofstream & outFile)
+{
+   typedef typename seqan::Iterator<TString>::Type TIterator;
+   for(TIterator it = begin(str); it != end(str); ++it)
+   {
+       outFile << " " << *it;
+   }
+   outFile << std::endl;
+}
+
 // =============================================================================
 // FUNCITON writeOutput()
 // =============================================================================
@@ -425,20 +419,20 @@ void writeOutput(std::ofstream & outFile,
         outFile << "first_read_unmapped " << rall[lid].firstunmapped << std::endl;
         outFile << "second_read_unmapped " << rall[lid].secondunmapped << std::endl;
         outFile << "discordant_read_pairs " << rall[lid].discordant << std::endl;
-        outFile << "genome_coverage_histogram"; rall[lid].get_poscov(outFile);
-        outFile << "insert_size_histogram"; r1[lid].get_insert_size_histogram(outFile);
-        outFile << "read_length_histogram_first"; r1[lid].get_read_length_histogram(outFile);
-        outFile << "read_length_histogram_second"; r2[lid].get_read_length_histogram(outFile);
-        outFile << "N_count_histogram_first"; r1[lid].get_N_count_histogram(outFile);
-        outFile << "N_count_histogram_second"; r2[lid].get_N_count_histogram(outFile);
-        outFile << "GC_content_histogram_first"; r1[lid].get_GC_count_histogram(outFile);
-        outFile << "GC_content_histogram_second"; r2[lid].get_GC_count_histogram(outFile);
-        outFile << "average_base_qual_histogram_first"; r1[lid].get_average_base_qual_histogram(outFile);
-        outFile << "average_base_qual_histogram_second"; r2[lid].get_average_base_qual_histogram(outFile);
-        outFile << "mapping_qual_histogram_first"; r1[lid].get_mapping_qual_histogram(outFile);
-        outFile << "mapping_qual_histogram_second"; r2[lid].get_mapping_qual_histogram(outFile);
-        outFile << "mismatch_count_histogram_first"; r1[lid].get_mismatch_count_histogram(outFile);
-        outFile << "mismatch_count_histogram_second"; r2[lid].get_mismatch_count_histogram(outFile);
+        outFile << "genome_coverage_histogram"; printString(rall[lid].poscov, outFile);
+        outFile << "insert_size_histogram"; printString(r1[lid].insertSize, outFile);
+        outFile << "read_length_histogram_first"; printString(r1[lid].readLength, outFile);
+        outFile << "read_length_histogram_second"; printString(r2[lid].readLength, outFile);
+        outFile << "N_count_histogram_first"; printString(r1[lid].Ncount, outFile);
+        outFile << "N_count_histogram_second"; printString(r2[lid].Ncount, outFile);
+        outFile << "GC_content_histogram_first"; printString(r1[lid].GCcount, outFile);
+        outFile << "GC_content_histogram_second"; printString(r2[lid].GCcount, outFile);
+        outFile << "average_base_qual_histogram_first"; printString(r1[lid].averageQual, outFile);
+        outFile << "average_base_qual_histogram_second"; printString(r2[lid].averageQual, outFile);
+        outFile << "mapping_qual_histogram_first"; printString(r1[lid].mapQ, outFile);
+        outFile << "mapping_qual_histogram_second"; printString(r2[lid].mapQ, outFile);
+        outFile << "mismatch_count_histogram_first"; printString(r1[lid].mismatch, outFile);
+        outFile << "mismatch_count_histogram_second"; printString(r2[lid].mismatch, outFile);
         outFile << "Ns_by_position_first"; r1[lid].get_DNA_by_position(4, outFile);
         outFile << "Ns_by_position_second"; r2[lid].get_DNA_by_position(4, outFile);
         outFile << "As_by_position_first"; r1[lid].get_DNA_by_position(0, outFile);
@@ -449,14 +443,14 @@ void writeOutput(std::ofstream & outFile,
         outFile << "Gs_by_position_second"; r2[lid].get_DNA_by_position(2, outFile);
         outFile << "Ts_by_position_first"; r1[lid].get_DNA_by_position(3, outFile);
         outFile << "Ts_by_position_second"; r2[lid].get_DNA_by_position(3, outFile);
-        outFile << "average_base_qual_by_position_first"; r1[lid].get_avg_base_qual_by_pos(outFile);
-        outFile << "average_base_qual_by_position_second"; r2[lid].get_avg_base_qual_by_pos(outFile);
-        outFile << "soft_clipping_5_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_5prime(outFile);
-        outFile << "soft_clipping_3_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_3prime(outFile);
-        outFile << "soft_clipping_5_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_5prime(outFile);
-        outFile << "soft_clipping_3_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_3prime(outFile);
+        outFile << "average_base_qual_by_position_first"; printString(r1[lid].avgqualcount, outFile);
+        outFile << "average_base_qual_by_position_second"; printString(r2[lid].avgqualcount, outFile);
+        outFile << "soft_clipping_5_prime_by_position_first"; printString(r1[lid].scposcount_5prime, outFile);
+        outFile << "soft_clipping_3_prime_by_position_first"; printString(r1[lid].scposcount_3prime, outFile);
+        outFile << "soft_clipping_5_prime_by_position_second"; printString(r2[lid].scposcount_5prime, outFile);
+        outFile << "soft_clipping_3_prime_by_position_second"; printString(r2[lid].scposcount_3prime, outFile);
         rall[lid].ten_most_abundant_kmers(outFile);
-        outFile << "8mer_count"; rall[lid].get_adapterKmercount(outFile);
+        outFile << "8mer_count"; printString(rall[lid].adapterKmercount, outFile);
         for (size_t i = 0; i < qsize; i++) {
             for (size_t j = 0; j < ksize; j++) {
                 outFile << opt.klist[j] << "mer_count_after_qual_clipping_"<< opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].get_sumCount() << std::endl;
@@ -867,15 +861,6 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
         }
 
     }
-    if (length(sccount_begin) <= Scount_begin){
-        resize(sccount_begin, Scount_begin+1, 0);
-        }
-    sccount_begin[Scount_begin] += 1; //histogram: frequency of reads with x-number of soft-clipping at the beginning
-
-    if (length(sccount_end) <= Scount_end){
-        resize(sccount_end, Scount_end+1, 0);
-        }
-    sccount_end[Scount_end] += 1; //histogram: frequency of reads with x-number of soft-clipping at the end
 }
 
 void QualityCheck::avgQualPerPos()
@@ -895,55 +880,6 @@ void QualityCheck::get_DNA_by_position(int c, std::ofstream & outFile)
     outFile << std::endl;
 }
 
-void QualityCheck::get_avg_base_qual_by_pos(std::ofstream & outFile)
-{
-    print(avgqualcount, outFile);
-}
-
-void QualityCheck::get_soft_clip_by_pos_5prime(std::ofstream & outFile)
-{
-    print(scposcount_5prime, outFile);
-}
-void QualityCheck::get_soft_clip_by_pos_3prime(std::ofstream & outFile)
-{
-    print(scposcount_3prime, outFile);
-}
-void QualityCheck::get_N_count_histogram(std::ofstream & outFile)
-{
-    print(Ncount, outFile);
-}
-void QualityCheck::get_GC_count_histogram(std::ofstream & outFile)
-{
-    print(GCcount, outFile);
-}
-void QualityCheck::get_soft_clipping_begin_histogram(std::ofstream & outFile)
-{
-    print(sccount_begin, outFile);
-}
-void QualityCheck::get_soft_clipping_end_histogram(std::ofstream & outFile)
-{
-    print(sccount_end, outFile);
-}
-void QualityCheck::get_average_base_qual_histogram(std::ofstream & outFile)
-{
-    print(averageQual, outFile);
-}
-void QualityCheck::get_insert_size_histogram(std::ofstream & outFile)
-{
-    print(insertSize, outFile);
-}
-void QualityCheck::get_mapping_qual_histogram(std::ofstream & outFile)
-{
-    print(mapQ, outFile);
-}
-void QualityCheck::get_mismatch_count_histogram(std::ofstream & outFile)
-{
-    print(mismatch, outFile);
-}
-void QualityCheck::get_read_length_histogram(std::ofstream & outFile)
-{
-    print(readLength, outFile);
-}
 void QualityCheck::clear_var()
 {
     seqan::clear(dnacount);
@@ -1062,16 +998,6 @@ void OverallNumbers::countAdapterKmers(seqan::CharString & seq)
                 std::cout << "hash_index too big\n";
         }
     }
-}
-
-void OverallNumbers::get_poscov(std::ofstream & outFile)
-{
-    print(poscov, outFile);
-}
-
-void OverallNumbers::get_adapterKmercount(std::ofstream & outFile)
-{
-    print(adapterKmercount, outFile);
 }
 
 void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq, seqan::CharString & qual, size_t & qsize, size_t & ksize) {
