@@ -332,7 +332,7 @@ void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq,
 // FUNCTION getSampleIdAndLaneNames()
 // -----------------------------------------------------------------------------
 
-void getSampleIdAndLaneNames(seqan::CharString & id, std::map<seqan::CharString, int> & laneNames, seqan::BamHeader & header)
+void getSampleIdAndLaneNames(seqan::CharString & id, std::map<seqan::CharString, unsigned> & laneNames, seqan::BamHeader & header)
 {
     seqan::CharString lanename;
     for (unsigned i = 0; i < length(header.records); ++i)
@@ -344,7 +344,8 @@ void getSampleIdAndLaneNames(seqan::CharString & id, std::map<seqan::CharString,
                 if (seqan::getValueI1(header.records[i].tags[j]) == "ID")
                 {
                     lanename = seqan::getValueI2(header.records[i].tags[j]);
-                    laneNames[lanename] = laneNames.size();
+                    unsigned l = laneNames.size();
+                    laneNames[lanename] = l;
                 }
                 if (seqan::getValueI1(header.records[i].tags[j]) == "SM")
                 {
@@ -361,10 +362,9 @@ void getSampleIdAndLaneNames(seqan::CharString & id, std::map<seqan::CharString,
 
 unsigned getLane(seqan::BamAlignmentRecord & record,
                  seqan::BamTagsDict & tagsDict,
-                 std::map<seqan::CharString, int> & laneNames,
+                 std::map<seqan::CharString, unsigned> & laneNames,
                  seqan::BamIOContext<seqan::StringSet<seqan::CharString> > & context)
 {
-    unsigned l;
     for (unsigned tagid = 0; tagid < length(tagsDict); ++tagid)
     {
         if (getTagKey(tagsDict, tagid) == "RG")
@@ -374,7 +374,7 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
                 seqan::CharString readlane;
                 readlane = getTagValue(tagsDict, tagid);
                 readlane = infix(readlane, 1, length(readlane)-1);
-                l = laneNames[readlane];
+                return laneNames[readlane];
                 break;
             }
             else
@@ -388,6 +388,85 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
             }
         }
     }
+}
+
+
+// =============================================================================
+// FUNCITON writeOutput()
+// =============================================================================
+
+void writeOutput(std::ofstream & outFile,
+                 seqan::CharString & sampleId,
+                 std::map<seqan::CharString, unsigned> & laneNames,
+                 seqan::String<OverallNumbers> & rall,
+                 seqan::String<QualityCheck> & r1,
+                 seqan::String<QualityCheck> & r2,
+                 ProgramOptions & opt,
+                 std::vector<std::vector<ReadQualityHasher> > & sps,
+                 size_t ksize, size_t qsize,
+                 seqan::String<TripletCounts> & counts)
+{
+    for (std::map<seqan::CharString, unsigned>::iterator it=laneNames.begin(); it!=laneNames.end(); ++it)
+    {
+        outFile << "sample_id " << sampleId << std::endl;
+        outFile << "lane " << it->first << std::endl;
+        int lid = it->second;
+
+        r1[lid].avgQualPerPos();
+        r2[lid].avgQualPerPos();
+
+        outFile << "total_read_pairs " << rall[lid].readcount/2 << std::endl;
+        outFile << "total_bps " << rall[lid].totalbps << std::endl;
+        outFile << "supplementary_alignments " << rall[lid].supplementary << std::endl;
+        outFile << "marked_duplicate " << rall[lid].duplicates << std::endl;
+        outFile << "QC_failed " << rall[lid].QCfailed << std::endl;
+        outFile << "not_primary_alignment " << rall[lid].not_primary_alignment << std::endl;
+        outFile << "both_reads_unmapped " << rall[lid].bothunmapped << std::endl;
+        outFile << "first_read_unmapped " << rall[lid].firstunmapped << std::endl;
+        outFile << "second_read_unmapped " << rall[lid].secondunmapped << std::endl;
+        outFile << "discordant_read_pairs " << rall[lid].discordant << std::endl;
+        outFile << "genome_coverage_histogram"; rall[lid].get_poscov(outFile);
+        outFile << "insert_size_histogram"; r1[lid].get_insert_size_histogram(outFile);
+        outFile << "read_length_histogram_first"; r1[lid].get_read_length_histogram(outFile);
+        outFile << "read_length_histogram_second"; r2[lid].get_read_length_histogram(outFile);
+        outFile << "N_count_histogram_first"; r1[lid].get_N_count_histogram(outFile);
+        outFile << "N_count_histogram_second"; r2[lid].get_N_count_histogram(outFile);
+        outFile << "GC_content_histogram_first"; r1[lid].get_GC_count_histogram(outFile);
+        outFile << "GC_content_histogram_second"; r2[lid].get_GC_count_histogram(outFile);
+        outFile << "average_base_qual_histogram_first"; r1[lid].get_average_base_qual_histogram(outFile);
+        outFile << "average_base_qual_histogram_second"; r2[lid].get_average_base_qual_histogram(outFile);
+        outFile << "mapping_qual_histogram_first"; r1[lid].get_mapping_qual_histogram(outFile);
+        outFile << "mapping_qual_histogram_second"; r2[lid].get_mapping_qual_histogram(outFile);
+        outFile << "mismatch_count_histogram_first"; r1[lid].get_mismatch_count_histogram(outFile);
+        outFile << "mismatch_count_histogram_second"; r2[lid].get_mismatch_count_histogram(outFile);
+        outFile << "Ns_by_position_first"; r1[lid].get_DNA_by_position(4, outFile);
+        outFile << "Ns_by_position_second"; r2[lid].get_DNA_by_position(4, outFile);
+        outFile << "As_by_position_first"; r1[lid].get_DNA_by_position(0, outFile);
+        outFile << "As_by_position_second"; r2[lid].get_DNA_by_position(0, outFile);
+        outFile << "Cs_by_position_first"; r1[lid].get_DNA_by_position(1, outFile);
+        outFile << "Cs_by_position_second"; r2[lid].get_DNA_by_position(1, outFile);
+        outFile << "Gs_by_position_first"; r1[lid].get_DNA_by_position(2, outFile);
+        outFile << "Gs_by_position_second"; r2[lid].get_DNA_by_position(2, outFile);
+        outFile << "Ts_by_position_first"; r1[lid].get_DNA_by_position(3, outFile);
+        outFile << "Ts_by_position_second"; r2[lid].get_DNA_by_position(3, outFile);
+        outFile << "average_base_qual_by_position_first"; r1[lid].get_avg_base_qual_by_pos(outFile);
+        outFile << "average_base_qual_by_position_second"; r2[lid].get_avg_base_qual_by_pos(outFile);
+        outFile << "soft_clipping_5_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_5prime(outFile);
+        outFile << "soft_clipping_3_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_3prime(outFile);
+        outFile << "soft_clipping_5_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_5prime(outFile);
+        outFile << "soft_clipping_3_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_3prime(outFile);
+        rall[lid].ten_most_abundant_kmers(outFile);
+        outFile << "8mer_count"; rall[lid].get_adapterKmercount(outFile);
+        for (size_t i = 0; i < qsize; i++) {
+            for (size_t j = 0; j < ksize; j++) {
+                outFile << opt.klist[j] << "mer_count_after_qual_clipping_"<< opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].get_sumCount() << std::endl;
+                outFile << "distinct_"<< opt.klist[j] << "mer_count_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].F0() << std::endl;
+                outFile << "unique_"<< opt.klist[j] << "mer_count_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].f1() << std::endl;
+                outFile << opt.klist[j] << "mer_F2_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].F2() << std::endl;
+            }
+        }
+    }
+    writeTripletCounts(outFile, counts);
 }
 
 // =============================================================================
@@ -448,28 +527,26 @@ int main(int argc, char const ** argv)
         }
     }
 
-    //Check if more than one lane.
+    // Initialize lane names (read groups).
     seqan::CharString sampleId;
-    std::map<seqan::CharString, int> laneNames;
+    std::map<seqan::CharString, unsigned> laneNames;
     getSampleIdAndLaneNames(sampleId, laneNames, header);
     unsigned lanecount = laneNames.size();
-
     seqan::clear(header);
 
-    seqan::String<QualityCheck> r1;
-    seqan::String<QualityCheck> r2;
-    resize(r1,lanecount, QualityCheck(opt.isize));
-    resize(r2,lanecount, QualityCheck(opt.isize));
-
-
+    // Initialize counts over all reads.
     seqan::String<OverallNumbers> rall;
-    resize(rall,lanecount);
+    resize(rall, lanecount);
 
+    // Initialize counts for first and second reads in pair.
+    seqan::String<QualityCheck> r1, r2;
+    resize(r1, lanecount, QualityCheck(opt.isize));
+    resize(r2, lanecount, QualityCheck(opt.isize));
+
+    // Init ReadQualityHasher
     size_t qsize = opt.q_cutoff.size();
     size_t ksize = opt.klist.size();
-    // Init ReadQualityHasher
     std::vector<std::vector<ReadQualityHasher> > sps(lanecount, std::vector<ReadQualityHasher> (qsize*ksize, ReadQualityHasher(opt)));
-
     for (unsigned k = 0;  k < lanecount; k++)
     {
         for (size_t i = 0; i < qsize; i++)
@@ -605,68 +682,7 @@ int main(int argc, char const ** argv)
         }
     }
 
-    for (std::map<seqan::CharString,int>::iterator it=laneNames.begin(); it!=laneNames.end(); ++it)
-    {
-            outFile << "sample_id " << sampleId << std::endl;
-            outFile << "lane " << it->first << std::endl;
-            int lid = it->second;
-
-            r1[lid].avgQualPerPos();
-            r2[lid].avgQualPerPos();
-
-            outFile << "total_read_pairs " << rall[lid].readcount/2 << std::endl;
-            outFile << "total_bps " << rall[lid].totalbps << std::endl;
-            outFile << "supplementary_alignments " << rall[lid].supplementary << std::endl;
-            outFile << "marked_duplicate " << rall[lid].duplicates << std::endl;
-            outFile << "QC_failed " << rall[lid].QCfailed << std::endl;
-            outFile << "not_primary_alignment " << rall[lid].not_primary_alignment << std::endl;
-            outFile << "both_reads_unmapped " << rall[lid].bothunmapped << std::endl;
-            outFile << "first_read_unmapped " << rall[lid].firstunmapped << std::endl;
-            outFile << "second_read_unmapped " << rall[lid].secondunmapped << std::endl;
-            outFile << "discordant_read_pairs " << rall[lid].discordant << std::endl;
-            outFile << "genome_coverage_histogram"; rall[lid].get_poscov(outFile);
-            outFile << "insert_size_histogram"; r1[lid].get_insert_size_histogram(outFile);
-            outFile << "read_length_histogram_first"; r1[lid].get_read_length_histogram(outFile);
-            outFile << "read_length_histogram_second"; r2[lid].get_read_length_histogram(outFile);
-            outFile << "N_count_histogram_first"; r1[lid].get_N_count_histogram(outFile);
-            outFile << "N_count_histogram_second"; r2[lid].get_N_count_histogram(outFile);
-            outFile << "GC_content_histogram_first"; r1[lid].get_GC_count_histogram(outFile);
-            outFile << "GC_content_histogram_second"; r2[lid].get_GC_count_histogram(outFile);
-            outFile << "average_base_qual_histogram_first"; r1[lid].get_average_base_qual_histogram(outFile);
-            outFile << "average_base_qual_histogram_second"; r2[lid].get_average_base_qual_histogram(outFile);
-            outFile << "mapping_qual_histogram_first"; r1[lid].get_mapping_qual_histogram(outFile);
-            outFile << "mapping_qual_histogram_second"; r2[lid].get_mapping_qual_histogram(outFile);
-            outFile << "mismatch_count_histogram_first"; r1[lid].get_mismatch_count_histogram(outFile);
-            outFile << "mismatch_count_histogram_second"; r2[lid].get_mismatch_count_histogram(outFile);
-            outFile << "Ns_by_position_first"; r1[lid].get_DNA_by_position(4, outFile);
-            outFile << "Ns_by_position_second"; r2[lid].get_DNA_by_position(4, outFile);
-            outFile << "As_by_position_first"; r1[lid].get_DNA_by_position(0, outFile);
-            outFile << "As_by_position_second"; r2[lid].get_DNA_by_position(0, outFile);
-            outFile << "Cs_by_position_first"; r1[lid].get_DNA_by_position(1, outFile);
-            outFile << "Cs_by_position_second"; r2[lid].get_DNA_by_position(1, outFile);
-            outFile << "Gs_by_position_first"; r1[lid].get_DNA_by_position(2, outFile);
-            outFile << "Gs_by_position_second"; r2[lid].get_DNA_by_position(2, outFile);
-            outFile << "Ts_by_position_first"; r1[lid].get_DNA_by_position(3, outFile);
-            outFile << "Ts_by_position_second"; r2[lid].get_DNA_by_position(3, outFile);
-            outFile << "average_base_qual_by_position_first"; r1[lid].get_avg_base_qual_by_pos(outFile);
-            outFile << "average_base_qual_by_position_second"; r2[lid].get_avg_base_qual_by_pos(outFile);
-            outFile << "soft_clipping_5_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_5prime(outFile);
-            outFile << "soft_clipping_3_prime_by_position_first"; r1[lid].get_soft_clip_by_pos_3prime(outFile);
-            outFile << "soft_clipping_5_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_5prime(outFile);
-            outFile << "soft_clipping_3_prime_by_position_second"; r2[lid].get_soft_clip_by_pos_3prime(outFile);
-            rall[lid].ten_most_abundant_kmers(outFile);
-            outFile << "8mer_count"; rall[lid].get_adapterKmercount(outFile);
-            for (size_t i = 0; i < qsize; i++) {
-                for (size_t j = 0; j < ksize; j++) {
-                    outFile << opt.klist[j] << "mer_count_after_qual_clipping_"<< opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].get_sumCount() << std::endl;
-                    outFile << "distinct_"<< opt.klist[j] << "mer_count_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].F0() << std::endl;
-                    outFile << "unique_"<< opt.klist[j] << "mer_count_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].f1() << std::endl;
-                    outFile << opt.klist[j] << "mer_F2_after_qual_clipping_" << opt.q_cutoff[i] << " " << sps[lid][i*ksize+j].F2() << std::endl;
-                }
-            }
-        }
-        writeTripletCounts(outFile, counts);
-
+    writeOutput(outFile, sampleId, laneNames, rall, r1, r2, opt, sps, ksize, qsize, counts);
     return 0;
 }
 
@@ -1115,16 +1131,4 @@ void OverallNumbers::ten_most_abundant_kmers(std::ofstream & outFile)
         outFile << "nr_" << i+1 << "_most_abundant_8mer "<< result << " " << ten_max_kmers[i] << std::endl;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
