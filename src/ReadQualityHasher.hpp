@@ -110,9 +110,10 @@ class ReadQualityHasher {
 // FUNCTION RunBamStream
 // ==========================================================================
 
-void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq, seqan::CharString & qual, size_t & qsize, size_t & ksize) {
-
-    for (size_t i = 0; i < qsize*ksize; i++) {
+void RunBamStream(std::vector<ReadQualityHasher> & sps, seqan::CharString & seq, seqan::CharString & qual, size_t qsize, size_t ksize)
+{
+    for (size_t i = 0; i < qsize*ksize; i++)
+    {
         sps[i](seqan::toCString(seq), seqan::length(seq),
         seqan::toCString(qual), seqan::length(qual));
     }
