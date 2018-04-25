@@ -101,6 +101,25 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
     }
 }
 
+std::set<int> initChroms(ProgramOptions & opt, seqan::StringSet<seqan::CharString> & nameStore)
+{
+    seqan::StringSet<seqan::CharString> chromSet;
+    resize(chromSet, 22);
+    seqan::strSplit(chromSet, opt.chroms, ',');
+
+    std::set<int> chrIdset;
+    int chrId;
+    typedef seqan::Iterator<seqan::StringSet<seqan::String<char> >, seqan::Standard>::Type TIterator;
+    for(TIterator it = begin(chromSet, seqan::Standard()); it != end(chromSet, seqan::Standard()); ++it)
+    {
+        if (seqan::getIdByName(nameStore,*it, chrId))
+        {
+            chrIdset.insert(chrId);
+        }
+    }
+    return chrIdset;
+}
+
 
 // -----------------------------------------------------------------------------
 // FUNCTION printString()
@@ -235,22 +254,6 @@ int main(int argc, char const ** argv)
         return 1;
     }
 
-    // set up chromset
-    seqan::StringSet<seqan::String<char> > chromSet;
-    seqan::String<char> seq = "chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22";
-    resize(chromSet, 22);
-    seqan::strSplit(chromSet, seq);
-    int chrId;
-    std::set<int> chrIdset;
-    typedef seqan::Iterator<seqan::StringSet<seqan::String<char> >, seqan::Standard>::Type TIterator;
-    for(TIterator it = begin(chromSet, seqan::Standard()); it != end(chromSet, seqan::Standard()); ++it)
-    {
-        if (seqan::getIdByName(nameStore,*it, chrId))
-        {
-            chrIdset.insert(chrId);
-        }
-    }
-
     // Initialize lane names (read groups).
     seqan::CharString sampleId;
     std::map<seqan::CharString, unsigned> laneNames;
@@ -262,10 +265,11 @@ int main(int argc, char const ** argv)
     seqan::String<Counts> counts;
     resize(counts, lanecount, Counts(opt));
 
-    // Reference genome.
+    // Reference genome and set of main chromosomes.
     Genome genome;
     genome.filename = opt.referenceFile;
     openFastaFile(genome);
+    std::set<int> chrIdset = initChroms(opt, nameStore);
 
     // Read record
     seqan::BamAlignmentRecord record;

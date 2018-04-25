@@ -17,6 +17,9 @@ struct ProgramOptions
     seqan::CharString referenceFile;
     seqan::CharString outputFile;
 
+    // Main chromosomes.
+    seqan::CharString chroms;
+
     // Parameters of kmerstream.
     std::vector<int> klist;
     double e;
@@ -28,6 +31,7 @@ struct ProgramOptions
     int isize;
 
     ProgramOptions() :
+        chroms("chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22"),
         referenceFile("genome.fa"), e(0.01), q_base(33), seed(0)
     {}
 };
@@ -61,6 +65,7 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
     setDefaultValue(parser, "r", "genome.fa");
     addOption(parser, seqan::ArgParseOption("i", "insert-size", "Upper bound for the insert size in insert size histogram.", seqan::ArgParseArgument::INTEGER, "INT"));
     setDefaultValue(parser, "i", "1000");
+    addOption(parser, seqan::ArgParseOption("c", "chromosomes", "Comma separated list of the main chromosome names.", seqan::ArgParseArgument::STRING, "STRING"));
     addOption(parser, seqan::ArgParseOption("o", "output-file", "Output filename.", seqan::ArgParseArgument::OUTPUTFILE, "OUT"));
 
     // Add kmerstream options.
@@ -93,6 +98,7 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
     getOptionValue(options.e, parser, "e");
     getOptionValue(options.seed, parser, "s");
     getOptionValue(options.isize, parser, "i");
+    getOptionValue(options.chroms, parser, "c");
     getOptionValue(options.outputFile, parser, "o");
 
     // Parse the list of quality cutoff values.
