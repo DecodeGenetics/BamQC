@@ -207,7 +207,7 @@ void writeOutput(std::ofstream & outFile,
                  std::vector<size_t> q_cutoff,
                  std::vector<int> klist)
 {
-    for (std::map<seqan::CharString, unsigned>::iterator it=laneNames.begin(); it!=laneNames.end(); ++it)
+    for (std::map<seqan::CharString, unsigned>::iterator it = laneNames.begin(); it != laneNames.end(); ++it)
     {
         outFile << "sample_id " << sampleId << std::endl;
         outFile << "lane " << it->first << std::endl;
@@ -258,8 +258,10 @@ void writeOutput(std::ofstream & outFile,
         outFile << "soft_clipping_3_prime_by_position_second"; printString(counts[lid].r2.scposcount_3prime, outFile);
         counts[lid].all.ten_most_abundant_kmers(outFile);
         outFile << "8mer_count"; printString(counts[lid].all.eightmercount, outFile);
-        for (size_t i = 0; i < q_cutoff.size(); i++) {
-            for (size_t j = 0; j < klist.size(); j++) {
+        for (size_t i = 0; i < q_cutoff.size(); i++)
+        {
+            for (size_t j = 0; j < klist.size(); j++)
+            {
                 outFile << klist[j] << "mer_count_after_qual_clipping_"<< q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].get_sumCount() << std::endl;
                 outFile << "distinct_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].F0() << std::endl;
                 outFile << "unique_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].f1() << std::endl;
@@ -285,9 +287,7 @@ int main(int argc, char const ** argv)
 
     seqan::ArgumentParser::ParseResult res = parseCommandLine(opt, argc, argv); // Parse the command line.
     if (res != seqan::ArgumentParser::PARSE_OK)
-    {
         return res == seqan::ArgumentParser::PARSE_ERROR;
-    }
 
     // Open files and initialize context.
 
@@ -328,25 +328,28 @@ int main(int argc, char const ** argv)
         if (l == -1) return 1;
 
         // Check the four highest flags and continue in some cases.
-        if (hasFlagSupplementary(record)) {
-            counts[l].all.supplementary +=1;
+        if (hasFlagSupplementary(record))
+        {
+            counts[l].all.supplementary += 1;
             continue;
         }
-        if (hasFlagSecondary(record)){
-            counts[l].all.not_primary_alignment +=1;
+        if (hasFlagSecondary(record))
+        {
+            counts[l].all.not_primary_alignment += 1;
             continue;
         }
-        if (hasFlagDuplicate(record)){
-            counts[l].all.duplicates +=1;
+        if (hasFlagDuplicate(record))
+        {
+            counts[l].all.duplicates += 1;
         }
-        if (hasFlagQCNoPass(record)){
-            counts[l].all.QCfailed +=1;
+        if (hasFlagQCNoPass(record))
+        {
+            counts[l].all.QCfailed += 1;
         }
 
         // Triplet counting.
-        if (tripletCounting(counts[l].tripletCounts, record, nameStore, genome, tripletCountingOptions) != 0) {
+        if (tripletCounting(counts[l].tripletCounts, record, nameStore, genome, tripletCountingOptions) != 0)
             return 1;
-        }
 
         // Check if read is in reverse complement.
         if (hasFlagRC(record))
@@ -365,9 +368,10 @@ int main(int argc, char const ** argv)
             counts[l].r1.get_count(record.seq, record.qual); // resize_string, read_count, read_length
             if (seqan::hasFlagUnmapped(record))
             {
-                counts[l].all.firstunmapped +=1; // counts number of unmapped reads
-                if (seqan::hasFlagNextUnmapped(record)) {
-                    counts[l].all.bothunmapped +=1; // counts number of reads where both first and second are unmapped
+                counts[l].all.firstunmapped += 1; // counts number of unmapped reads
+                if (seqan::hasFlagNextUnmapped(record))
+                {
+                    counts[l].all.bothunmapped += 1; // counts number of reads where both first and second are unmapped
                 }
             }
         }
@@ -375,8 +379,9 @@ int main(int argc, char const ** argv)
         {
             counts[l].r2.check_read_len(record.seq, record.qual);
             counts[l].r2.get_count(record.seq, record.qual); // resize_string, read_count, read_length
-            if (seqan::hasFlagUnmapped(record)){
-                counts[l].all.secondunmapped +=1; //
+            if (seqan::hasFlagUnmapped(record))
+            {
+                counts[l].all.secondunmapped += 1;
             }
         }
         else
@@ -386,7 +391,7 @@ int main(int argc, char const ** argv)
         }
 
         // Counts only over the specified main chromosomes.
-        if (chrIdset.count(record.rID)!=0)
+        if (chrIdset.count(record.rID) != 0)
         {
             if (seqan::hasFlagFirst(record))
             {
@@ -397,7 +402,7 @@ int main(int argc, char const ** argv)
                     counts[l].r1.mis_match(tagsDict); // histogram: mismatches
                     if (!seqan::hasFlagNextUnmapped(record))
                     {
-                        if (chrIdset.count(record.rNextId)!=0)
+                        if (chrIdset.count(record.rNextId) != 0)
                         {
                             counts[l].r1.insert_size(record.tLen);
                         }
@@ -406,10 +411,12 @@ int main(int argc, char const ** argv)
             }
             else if (seqan::hasFlagLast(record))
             {
-                if (!seqan::hasFlagAllProper(record) && (!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record))) {
-                    counts[l].all.discordant +=1;
+                if (!seqan::hasFlagAllProper(record) && (!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record)))
+                {
+                    counts[l].all.discordant += 1;
                 }
-                if (!seqan::hasFlagUnmapped(record)){
+                if (!seqan::hasFlagUnmapped(record))
+                {
                     counts[l].r2.cigar_count(record);
                     counts[l].r2.map_Q(record.mapQ);
                     counts[l].r2.mis_match(tagsDict);
@@ -424,7 +431,8 @@ int main(int argc, char const ** argv)
         // Count adapter 8-mers.
         counts[l].all.count8mers(record.seq);
 
-        if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
+        if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record))
+        {
             RunBamStream(counts[l].sps, record.seq, record.qual, opt.q_cutoff.size(), opt.klist.size());
         }
     }
