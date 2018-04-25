@@ -16,7 +16,7 @@ struct Counts
     OverallNumbers all;
     QualityCheck r1, r2;
     seqan::String<TripletCounts> tripletCounts;
-    std::vector<ReadQualityHasher> sps;
+    std::vector<std::vector<ReadQualityHasher> > sps;
 
     Counts(ProgramOptions & opt)
     {
@@ -25,15 +25,13 @@ struct Counts
         resize(tripletCounts, 64);
 
         // Initialize ReadQualityHasher.
-        size_t qsize = opt.q_cutoff.size();
-        size_t ksize = opt.klist.size();
-        sps = std::vector<ReadQualityHasher>(qsize*ksize, ReadQualityHasher(opt));
-        for (size_t i = 0; i < qsize; i++)
+        sps = std::vector<std::vector<ReadQualityHasher> >(opt.q_cutoff.size(), std::vector<ReadQualityHasher>(opt.klist.size(), ReadQualityHasher(opt)));
+        for (size_t i = 0; i < sps.size(); i++)
         {
-            for (size_t j = 0; j < ksize; j++)
+            for (size_t j = 0; j < sps[i].size(); j++)
             {
-                sps[i*ksize+j].setQualityCutoff(opt.q_cutoff[i]);
-                sps[i*ksize+j].setK(opt.klist[j]);
+                sps[i][j].setQualityCutoff(opt.q_cutoff[i]);
+                sps[i][j].setK(opt.klist[j]);
             }
         }
     }
@@ -258,14 +256,14 @@ void writeOutput(std::ofstream & outFile,
         outFile << "soft_clipping_3_prime_by_position_second"; printString(counts[lid].r2.scposcount_3prime, outFile);
         counts[lid].all.ten_most_abundant_kmers(outFile);
         outFile << "8mer_count"; printString(counts[lid].all.eightmercount, outFile);
-        for (size_t i = 0; i < q_cutoff.size(); i++)
+        for (size_t i = 0; i < counts[lid].sps.size(); i++)
         {
-            for (size_t j = 0; j < klist.size(); j++)
+            for (size_t j = 0; j < counts[lid].sps[i].size(); j++)
             {
-                outFile << klist[j] << "mer_count_after_qual_clipping_"<< q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].get_sumCount() << std::endl;
-                outFile << "distinct_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].F0() << std::endl;
-                outFile << "unique_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].f1() << std::endl;
-                outFile << klist[j] << "mer_F2_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].F2() << std::endl;
+                outFile << klist[j] << "mer_count_after_qual_clipping_"<< q_cutoff[i] << " " << counts[lid].sps[i][j].get_sumCount() << std::endl;
+                outFile << "distinct_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i][j].F0() << std::endl;
+                outFile << "unique_"<< klist[j] << "mer_count_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i][j].f1() << std::endl;
+                outFile << klist[j] << "mer_F2_after_qual_clipping_" << q_cutoff[i] << " " << counts[lid].sps[i][j].F2() << std::endl;
             }
         }
         writeTripletCounts(outFile, counts[lid].tripletCounts);
@@ -397,7 +395,7 @@ int main(int argc, char const ** argv)
             {
                 if (!seqan::hasFlagUnmapped(record))
                 {
-                    counts[l].r1.cigar_count(record); //soft-clipping per read positions and histogram: soft-clipping at beginning and end seperately
+                    counts[l].r1.cigar_count(record); //soft-clipping per read positions and histogram: soft-clipping at beginning and end separately
                     counts[l].r1.map_Q(record.mapQ); // histogram: mapping quality
                     counts[l].r1.mis_match(tagsDict); // histogram: mismatches
                     if (!seqan::hasFlagNextUnmapped(record))
@@ -428,12 +426,12 @@ int main(int argc, char const ** argv)
             }
         }
 
-        // Count adapter 8-mers.
+        // Count 8-mers.
         counts[l].all.count8mers(record.seq);
 
         if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record))
         {
-            RunBamStream(counts[l].sps, record.seq, record.qual, opt.q_cutoff.size(), opt.klist.size());
+            RunBamStream(counts[l].sps, record.seq, record.qual);
         }
     }
 
