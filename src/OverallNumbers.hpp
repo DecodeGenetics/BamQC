@@ -21,10 +21,10 @@ public:
     unsigned discordant;
 
     seqan::String<unsigned> poscov;
-    seqan::String<uint64_t> adapterKmercount;
+    seqan::String<uint64_t> eightmercount;
 
     void coverage(seqan::BamAlignmentRecord & record);
-    void countAdapterKmers(seqan::CharString & seq);
+    void count8mers(seqan::CharString & seq);
     void get_kmer_histogram(std::ofstream & outFile);
     void ten_most_abundant_kmers(std::ofstream & outFile);
 
@@ -48,7 +48,7 @@ private:
 OverallNumbers::OverallNumbers() : supplementary(0), duplicates(0), QCfailed(0), not_primary_alignment(0), readcount(0), totalbps(0), bothunmapped(0), firstunmapped(0), secondunmapped(0), discordant(0),
 first(true), vsize(1000), covsize(100), shift(0), id(0)
 {
-    resize(adapterKmercount, 65536, 0); //TTTTTTTT = 65535
+    resize(eightmercount, 65536, 0); //TTTTTTTT = 65535
 }
 
 void OverallNumbers::update_vectors()
@@ -126,7 +126,7 @@ void OverallNumbers::coverage(seqan::BamAlignmentRecord & record)
     }
 }
 
-void OverallNumbers::countAdapterKmers(seqan::CharString & seq)
+void OverallNumbers::count8mers(seqan::CharString & seq)
 {
     typedef seqan::Iterator<seqan::DnaString>::Type TIterator;
     typedef seqan::Iterator<seqan::CharString>::Type TCharIterator;
@@ -151,7 +151,7 @@ void OverallNumbers::countAdapterKmers(seqan::CharString & seq)
         else
         {
             if (index < 65536){
-                ++adapterKmercount[index];
+                ++eightmercount[index];
             }
             else
                 std::cout << "hash_index too big\n";
@@ -161,7 +161,7 @@ void OverallNumbers::countAdapterKmers(seqan::CharString & seq)
 
 void OverallNumbers::ten_most_abundant_kmers(std::ofstream & outFile)
 {
-    seqan::String<uint64_t> v_copy(adapterKmercount);
+    seqan::String<uint64_t> v_copy(eightmercount);
     resize(ten_max_kmers,10,0);
 
     seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type it = begin(v_copy);
@@ -179,8 +179,8 @@ void OverallNumbers::ten_most_abundant_kmers(std::ofstream & outFile)
     std::sort(itmax, itmaxEnd, std::greater<uint64_t>());
 
 
-    seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itv = begin(adapterKmercount);
-    seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itvEnd = end(adapterKmercount);
+    seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itv = begin(eightmercount);
+    seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itvEnd = end(eightmercount);
 
     seqan::DnaString result; //todo move to class and make seperate print function
     unsigned q = 8;
@@ -199,7 +199,7 @@ void OverallNumbers::ten_most_abundant_kmers(std::ofstream & outFile)
         {
             while (posSet.count(pos)!=0)
             {
-                seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itvnext = begin(adapterKmercount) +pos+1;
+                seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itvnext = begin(eightmercount) +pos+1;
                 pos = std::find(itvnext, itvEnd, ten_max_kmers[i]) - itv;
             }
             posSet.insert(pos);

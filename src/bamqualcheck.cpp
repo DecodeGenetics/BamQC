@@ -101,6 +101,10 @@ unsigned getLane(seqan::BamAlignmentRecord & record,
     }
 }
 
+// -----------------------------------------------------------------------------
+// FUNCTION initChroms()
+// -----------------------------------------------------------------------------
+
 std::set<int> initChroms(ProgramOptions & opt, seqan::StringSet<seqan::CharString> & nameStore)
 {
     seqan::StringSet<seqan::CharString> chromSet;
@@ -118,6 +122,62 @@ std::set<int> initChroms(ProgramOptions & opt, seqan::StringSet<seqan::CharStrin
         }
     }
     return chrIdset;
+}
+
+
+// -----------------------------------------------------------------------------
+// FUNCTION openFilesAndInit()
+// -----------------------------------------------------------------------------
+
+int openFilesAndInit(seqan::Stream<seqan::Bgzf> & inStream,
+                      seqan::StringSet<seqan::CharString> & nameStore,
+                      seqan::BamIOContext<seqan::StringSet<seqan::CharString> > & context,
+                      seqan::CharString & sampleId,
+                      std::map<seqan::CharString, unsigned> & laneNames,
+                      Genome & genome,
+                      std::set<int> & chrIdset,
+                      std::ofstream & outFile,
+                      ProgramOptions & opt)
+{
+    // Typedefs for name store, cache, and BAM I/O context.
+    typedef seqan::StringSet<seqan::CharString> TNameStore;
+    typedef seqan::NameStoreCache<TNameStore>   TNameStoreCache;
+    typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
+
+    // Open BGZF Stream for reading.
+    if (!open(inStream, toCString(opt.bamFile), "r")) //check if toCstring is needed
+    {
+        std::cerr << "ERROR: Could not open " << opt.bamFile << " for reading.\n";
+        return 1;
+    }
+
+    outFile.open(toCString(opt.outputFile), std::ios::out | std::ios::binary);
+    if (!outFile.good())
+    {
+        std::cerr << "ERROR: Could not open output file " << opt.outputFile << '\n';
+        return 1;
+    }
+
+    TNameStoreCache nameStoreCache(nameStore);
+    context = TBamIOContext(nameStore, nameStoreCache);
+
+    seqan::BamHeader header;
+    if (readRecord(header, context, inStream, seqan::Bam()) != 0)
+    {
+        std::cerr << "ERROR: Could not read header from BAM file " << opt.bamFile << "\n";
+        return 1;
+    }
+
+    // Initialize sample ID and lane names (read groups).
+    getSampleIdAndLaneNames(sampleId, laneNames, header);
+    seqan::clear(header);
+
+    // Initialize reference genome and set of main chromosomes.
+    genome.filename = opt.referenceFile;
+    openFastaFile(genome);
+    chrIdset = initChroms(opt, nameStore);
+
+    return 0;
 }
 
 
@@ -197,7 +257,7 @@ void writeOutput(std::ofstream & outFile,
         outFile << "soft_clipping_5_prime_by_position_second"; printString(counts[lid].r2.scposcount_5prime, outFile);
         outFile << "soft_clipping_3_prime_by_position_second"; printString(counts[lid].r2.scposcount_3prime, outFile);
         counts[lid].all.ten_most_abundant_kmers(outFile);
-        outFile << "8mer_count"; printString(counts[lid].all.adapterKmercount, outFile);
+        outFile << "8mer_count"; printString(counts[lid].all.eightmercount, outFile);
         for (size_t i = 0; i < q_cutoff.size(); i++) {
             for (size_t j = 0; j < klist.size(); j++) {
                 outFile << klist[j] << "mer_count_after_qual_clipping_"<< q_cutoff[i] << " " << counts[lid].sps[i*klist.size()+j].get_sumCount() << std::endl;
@@ -216,9 +276,8 @@ void writeOutput(std::ofstream & outFile,
 
 int main(int argc, char const ** argv)
 {
-    // Typedefs for name store, cache, and BAM I/O context.
+    // Typedefs for name store and BAM I/O context.
     typedef seqan::StringSet<seqan::CharString> TNameStore;
-    typedef seqan::NameStoreCache<TNameStore>   TNameStoreCache;
     typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
 
     ProgramOptions opt;
@@ -230,57 +289,40 @@ int main(int argc, char const ** argv)
         return res == seqan::ArgumentParser::PARSE_ERROR;
     }
 
-    seqan::Stream<seqan::Bgzf> inStream; // Open BGZF Stream for reading.
-    if (!open(inStream, toCString(opt.bamFile), "r")) //check if toCstring is needed
-    {
-        std::cerr << "ERROR: Could not open " << opt.bamFile << " for reading.\n";
-        return 1;
-    }
-    std::ofstream outFile(toCString(opt.outputFile), std::ios::out | std::ios::binary);
-    if (!outFile.good())
-    {
-        std::cerr << "ERROR: Could not open output file " << opt.outputFile << '\n';
-        return 1;
-    }
+    // Open files and initialize context.
 
-    TNameStore      nameStore;
-    TNameStoreCache nameStoreCache(nameStore);
-    TBamIOContext   context(nameStore, nameStoreCache);
+    seqan::Stream<seqan::Bgzf> inStream;
+    TNameStore nameStore;
+    TBamIOContext context;
 
-    seqan::BamHeader header;
-    if (readRecord(header, context, inStream, seqan::Bam()) != 0)
-    {
-        std::cerr << "ERROR: Could not read header from BAM file " << opt.bamFile << "\n";
-        return 1;
-    }
-
-    // Initialize lane names (read groups).
     seqan::CharString sampleId;
     std::map<seqan::CharString, unsigned> laneNames;
-    getSampleIdAndLaneNames(sampleId, laneNames, header);
-    unsigned lanecount = laneNames.size();
-    seqan::clear(header);
+
+    Genome genome;
+    std::set<int> chrIdset;
+
+    std::ofstream outFile;
+
+    if (openFilesAndInit(inStream, nameStore, context, sampleId, laneNames, genome, chrIdset, outFile, opt) == 1)
+        return 1;
 
     // Initialize all counts for each lane.
     seqan::String<Counts> counts;
+    unsigned lanecount = laneNames.size();
     resize(counts, lanecount, Counts(opt));
 
-    // Reference genome and set of main chromosomes.
-    Genome genome;
-    genome.filename = opt.referenceFile;
-    openFastaFile(genome);
-    std::set<int> chrIdset = initChroms(opt, nameStore);
-
-    // Read record
+    // Iterate the input BAM file.
     seqan::BamAlignmentRecord record;
     while (!atEnd(inStream))
     {
-        //READ RECORD
+        // Read record from BAM file.
         if (readRecord(record, context, inStream, seqan::Bam()) != 0)
         {
             std::cerr << "ERROR: Could not read record from BAM File " << opt.bamFile << "\n";
             return 1;
         }
+
+        // Get lane of the record.
         seqan::BamTagsDict tagsDict(record.tags);
         unsigned l = getLane(record, tagsDict, laneNames, context);
         if (l == -1) return 1;
@@ -306,18 +348,20 @@ int main(int argc, char const ** argv)
             return 1;
         }
 
-        if (hasFlagRC(record)) // check if read is in reverse complement
+        // Check if read is in reverse complement.
+        if (hasFlagRC(record))
         {
             reverseComplement(record.seq);
             reverse(record.qual);
             reverse(record.cigar);
         }
-        // All chromosomes
+
+        // Counts over all chromosomes.
         counts[l].all.readcount +=1;
         counts[l].all.totalbps += length(record.seq);
         if (seqan::hasFlagFirst(record))
         {
-            counts[l].r1.check_read_len(record.seq, record.qual); // stores dequence as String of Dna5 and checks if length of seq and qual is the same
+            counts[l].r1.check_read_len(record.seq, record.qual); // stores sequence as String of Dna5 and checks if length of seq and qual is the same
             counts[l].r1.get_count(record.seq, record.qual); // resize_string, read_count, read_length
             if (seqan::hasFlagUnmapped(record))
             {
@@ -341,7 +385,7 @@ int main(int argc, char const ** argv)
             return 1;
         }
 
-        // only chromosome chr1, chr2, ... chr22
+        // Counts only over the specified main chromosomes.
         if (chrIdset.count(record.rID)!=0)
         {
             if (seqan::hasFlagFirst(record))
@@ -377,7 +421,8 @@ int main(int argc, char const ** argv)
             }
         }
 
-        counts[l].all.countAdapterKmers(record.seq); //count adapter 8-mers
+        // Count adapter 8-mers.
+        counts[l].all.count8mers(record.seq);
 
         if (!seqan::hasFlagQCNoPass(record) && !seqan::hasFlagDuplicate(record)) {
             RunBamStream(counts[l].sps, record.seq, record.qual, opt.q_cutoff.size(), opt.klist.size());
