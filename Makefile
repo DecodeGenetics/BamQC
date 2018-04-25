@@ -39,3 +39,4 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(SRC_DIR)/%.hpp
 
 clean:
 	rm -f $(BUILD_DIR)/$(TARGET).o $(OBJS) $(TARGET)
+	rmdir build/kmerstream build
