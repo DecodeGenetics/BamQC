@@ -21,15 +21,12 @@ public:
     void map_Q(__uint8 & mapq);
     void insert_size(int & tlen);
     void mis_match(seqan::BamTagsDict & tagsDict);
-    void clear_var();
-
-    //print functions
-    void get_DNA_by_position(int c, std::ofstream & outFile);
 
     //Count per read position
     seqan::String<double> avgqualcount;
     seqan::String<unsigned> scposcount_5prime;
     seqan::String<unsigned> scposcount_3prime;
+    seqan::String<seqan::String<uint64_t> > dnacount;
 
     //Count per read -> histogram
     seqan::String<unsigned> averageQual;
@@ -44,7 +41,6 @@ private:
     seqan::CharString softclipping;
 
     //Count per read position
-    seqan::String<seqan::String<uint64_t> > dnacount;
     seqan::String<uint64_t> qualcount;
 
     //Count per read -> histogram
@@ -59,11 +55,13 @@ private:
 
 QualityCheck::QualityCheck(): maxtlen(1000), softclipping('S'), qualcount_readnr(0)
 {
+    resize(dnacount, 5);
     resize(insertSize, maxtlen +1, 0);
 }
 
 QualityCheck::QualityCheck(int isize): maxtlen(isize), softclipping('S'), qualcount_readnr(0)
 {
+    resize(dnacount, 5);
     resize(insertSize, maxtlen +1, 0);
 }
 
@@ -91,20 +89,20 @@ void QualityCheck::resize_strings()
 {
     // count for nucleotides and qualtype for each read position:
     // Increase number of counters if dnaseq is longer than the previous reads.
-    if (length(dnacount) < length(dnaseq)) //This should only be true once...
+    if (length(qualcount) < length(dnaseq)) //This should only be true once...
     {
-        unsigned oldSize = length(dnacount);
-        resize(dnacount, length(dnaseq), 0);
-        resize(qualcount, length(dnacount), 0);
-        resize(avgqualcount, length(dnacount), 0);
-        resize(Ncount, length(dnacount)+1,0);
-        resize(GCcount, length(dnacount)+1,0);
-        resize(scposcount_5prime, length(dnacount), 0); //check if n is only assigned to added size.
-        resize(scposcount_3prime, length(dnacount), 0); //check if n is only assigned to added size.
+        unsigned oldSize = length(qualcount);
 
-        for (unsigned j = oldSize; j < length(dnacount); ++j)
+        resize(qualcount, length(dnaseq), 0);
+        resize(avgqualcount, length(dnaseq), 0);
+        resize(Ncount, length(dnaseq)+1,0);
+        resize(GCcount, length(dnaseq)+1,0);
+        resize(scposcount_5prime, length(dnaseq), 0); //check if n is only assigned to added size.
+        resize(scposcount_3prime, length(dnaseq), 0); //check if n is only assigned to added size.
+
+        for (unsigned j = 0; j < 5; ++j)
         {
-            resize(dnacount[j], 5, 0);
+            resize(dnacount[j], length(dnaseq), 0);
         }
     }
 }
@@ -130,22 +128,22 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
     unsigned cntGC = 0;
     unsigned avgQual = 0;
 
-    qualcount_readnr+=1;
+    qualcount_readnr += 1;
 
     unsigned j = 0;
     seqan::Iterator<seqan::Dna5String, seqan::Rooted>::Type itseq = begin(dnaseq);
     seqan::Iterator<seqan::Dna5String, seqan::Rooted>::Type itEndseq = end(dnaseq);
     for (; itseq != itEndseq; goNext(itseq))
     {
-        dnacount[j][(int) seqan::ordValue(*itseq)] += 1;
+        dnacount[(int) seqan::ordValue(*itseq)][j] += 1;
 
         if (*itseq == 'N') // count number of Ns per read
         {
-            cntN +=1;
+            cntN += 1;
         }
         if ((*itseq == 'C') || (*itseq == 'G')) // count number of GCs per read
         {
-            cntGC +=1;
+            cntGC += 1;
         }
         ++j;
     }
@@ -154,19 +152,20 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
     seqan::Iterator<seqan::CharString, seqan::Rooted>::Type itEndqual = end(qual);
     for (; itqual != itEndqual; goNext(itqual))
     {
-        qualcount[j]+= (int) seqan::ordValue(*itqual)-33; // sums up the quality value for all reads per postion
+        qualcount[j] += (int) seqan::ordValue(*itqual)-33; // sums up the quality value for all reads per postion
         avgQual += (int) seqan::ordValue(*itqual)-33; // sums up all quality values for the read
         ++j;
     }
 
     Ncount[cntN] += 1; //count number of Ns per read
 
-    GCcount[cntGC] +=1;
+    GCcount[cntGC] += 1;
 
-    if (length(averageQual) <= ceil(double(avgQual)/length(seq))){
-        resize(averageQual, ceil(double(avgQual)/length(seq))+1, 0);
-        }
-    averageQual[(int)round(double(avgQual)/length(seq))] +=1; // histogram: frequency of reads with x-average quality value.
+    if (length(averageQual) <= ceil(double(avgQual) / length(seq)))
+    {
+        resize(averageQual, ceil(double(avgQual) / length(seq)) + 1, 0);
+    }
+    averageQual[(int)round(double(avgQual) / length(seq))] += 1; // histogram: frequency of reads with x-average quality value.
 }
 
 void QualityCheck::read_length(seqan::CharString & seq)
@@ -262,21 +261,6 @@ void QualityCheck::avgQualPerPos()
     {
         avgqualcount[i] = (qualcount[i]/(double)qualcount_readnr); // sum of all read qualities per position / number of reads TODO: check if correct
     }
-}
-
-void QualityCheck::get_DNA_by_position(int c, std::ofstream & outFile)
-{
-    for (unsigned j = 0; j < length(dnacount); ++j)
-    {
-        outFile << " " << dnacount[j][c];
-    }
-    outFile << std::endl;
-}
-
-void QualityCheck::clear_var()
-{
-    seqan::clear(dnacount);
-    seqan::clear(qualcount);
 }
 
 #endif  // QUALITY_CHECK_H_
