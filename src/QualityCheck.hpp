@@ -8,25 +8,13 @@
 class QualityCheck
 {
 public:
-    QualityCheck();
-    QualityCheck(int isize);
-
-    //functions
-    void avgQualPerPos();
-    int check_read_len(seqan::CharString & seq, seqan::CharString & qual);
-    void get_count(seqan::CharString & rec, seqan::CharString & qual);
-    void cigar_count(seqan::BamAlignmentRecord & record);
-    void map_Q(__uint8 & mapq);
-    void insert_size(int & tlen);
-    void mis_match(seqan::BamTagsDict & tagsDict);
-
-    //Count per read position
+    // Count per read position
     seqan::String<double> avgqualcount;
     seqan::String<unsigned> scposcount_5prime;
     seqan::String<unsigned> scposcount_3prime;
     seqan::String<seqan::String<uint64_t> > dnacount;
 
-    //Count per read -> histogram
+    // Count per read -> histogram
     seqan::String<unsigned> averageQual;
     seqan::String<unsigned> Ncount;
     seqan::String<uint64_t> GCcount;
@@ -35,29 +23,40 @@ public:
     seqan::String<unsigned> readLength;
     seqan::String<unsigned> mismatch;
 
-private:
-    seqan::CharString softclipping;
+    // Constructors
+    QualityCheck();
+    QualityCheck(int isize);
 
-    //Count per read position
+    // Functions
+    void avgQualPerPos();
+    int check_read_len(seqan::CharString & seq, seqan::CharString & qual);
+    void get_count(seqan::CharString & rec, seqan::CharString & qual);
+    void cigar_count(seqan::BamAlignmentRecord & record);
+    void map_Q(__uint8 & mapq);
+    void insert_size(int & tlen);
+    void mis_match(seqan::BamTagsDict & tagsDict);
+
+private:
+    // Count per read position
     seqan::String<uint64_t> qualcount;
 
-    //Count per read -> histogram
+    // Count per read -> histogram
     unsigned DIcount;
     unsigned qualcount_readnr;
 
-    //functions
+    // Functions
     void resize_strings(seqan::CharString & dnaseq);
     void read_counts(seqan::CharString & record, seqan::CharString & qual);
     void read_length(seqan::CharString & record);
 };
 
-QualityCheck::QualityCheck(): softclipping('S'), qualcount_readnr(0)
+QualityCheck::QualityCheck(): qualcount_readnr(0)
 {
     resize(dnacount, 5);
     resize(insertSize, 1001, 0);
 }
 
-QualityCheck::QualityCheck(int isize): softclipping('S'), qualcount_readnr(0)
+QualityCheck::QualityCheck(int isize): qualcount_readnr(0)
 {
     resize(dnacount, 5);
     resize(insertSize, isize + 1, 0);
@@ -168,18 +167,20 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
 void QualityCheck::read_length(seqan::CharString & seq)
 {
     unsigned lseq = length(seq);
-    if (length(readLength) <= lseq){
-        resize(readLength, lseq +1, 0);
-        }
+    if (length(readLength) <= lseq)
+    {
+        resize(readLength, lseq + 1, 0);
+    }
     readLength[lseq] += 1; // histogram of read lengths
 }
 
 void QualityCheck::map_Q(__uint8 & mapq)
 {
-    if (length(mapQ) <= mapq){
-        resize(mapQ, mapq +1, 0);
-        }
-    mapQ[mapq] +=1; // histogram of mapping Qualities
+    if (length(mapQ) <= mapq)
+    {
+        resize(mapQ, mapq + 1, 0);
+    }
+    mapQ[mapq] += 1; // histogram of mapping Qualities
 }
 
 void QualityCheck::insert_size(int & tlen)
@@ -207,10 +208,11 @@ void QualityCheck::mis_match(seqan::BamTagsDict & tagsDict)
                 extractTagValue(x, tagsDict, tagid); // x gives number of mismatches + deletions + insertions
                 unsigned mmcount = x - DIcount; // x - deletions -insertions gives number of mismatches
 
-                if (length(mismatch) <= mmcount){
-                    resize(mismatch, mmcount +1, 0);
-                    }
-                mismatch[mmcount] +=1; // histogram of number of mismatches
+                if (length(mismatch) <= mmcount)
+                {
+                    resize(mismatch, mmcount + 1, 0);
+                }
+                mismatch[mmcount] += 1; // histogram of number of mismatches
             }
         }
     }
