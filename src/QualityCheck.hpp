@@ -10,8 +10,6 @@ class QualityCheck
 public:
     QualityCheck();
     QualityCheck(int isize);
-    unsigned maxtlen;
-    seqan::String<seqan::Dna5> dnaseq;
 
     //functions
     void avgQualPerPos();
@@ -48,21 +46,21 @@ private:
     unsigned qualcount_readnr;
 
     //functions
-    void resize_strings();
+    void resize_strings(seqan::CharString & dnaseq);
     void read_counts(seqan::CharString & record, seqan::CharString & qual);
     void read_length(seqan::CharString & record);
 };
 
-QualityCheck::QualityCheck(): maxtlen(1000), softclipping('S'), qualcount_readnr(0)
+QualityCheck::QualityCheck(): softclipping('S'), qualcount_readnr(0)
 {
     resize(dnacount, 5);
-    resize(insertSize, maxtlen +1, 0);
+    resize(insertSize, 1001, 0);
 }
 
-QualityCheck::QualityCheck(int isize): maxtlen(isize), softclipping('S'), qualcount_readnr(0)
+QualityCheck::QualityCheck(int isize): softclipping('S'), qualcount_readnr(0)
 {
     resize(dnacount, 5);
-    resize(insertSize, maxtlen +1, 0);
+    resize(insertSize, isize + 1, 0);
 }
 
 // -----------------------------------------------------------------------------
@@ -72,8 +70,7 @@ QualityCheck::QualityCheck(int isize): maxtlen(isize), softclipping('S'), qualco
 int QualityCheck::check_read_len(seqan::CharString & seq, seqan::CharString & qual)
 {
     // COUNTS PER READ POSITION
-    dnaseq = seq;
-    if (length(dnaseq) != length(qual))
+    if (length(seq) != length(qual))
     {
         std::cerr << "ERROR: length of sequence and quality is not the same" << "\n";
         return 1;
@@ -85,7 +82,7 @@ int QualityCheck::check_read_len(seqan::CharString & seq, seqan::CharString & qu
 // FUNCTION resize_strings()
 // -----------------------------------------------------------------------------
 
-void QualityCheck::resize_strings()
+void QualityCheck::resize_strings(seqan::CharString & dnaseq)
 {
     // count for nucleotides and qualtype for each read position:
     // Increase number of counters if dnaseq is longer than the previous reads.
@@ -113,7 +110,7 @@ void QualityCheck::resize_strings()
 
 void QualityCheck::get_count(seqan::CharString & seq, seqan::CharString & qual)
 {
-    resize_strings();
+    resize_strings(seq);
     read_counts(seq, qual);
     read_length(seq);
 }
@@ -131,11 +128,11 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
     qualcount_readnr += 1;
 
     unsigned j = 0;
-    seqan::Iterator<seqan::Dna5String, seqan::Rooted>::Type itseq = begin(dnaseq);
-    seqan::Iterator<seqan::Dna5String, seqan::Rooted>::Type itEndseq = end(dnaseq);
+    seqan::Iterator<seqan::CharString, seqan::Rooted>::Type itseq = begin(seq);
+    seqan::Iterator<seqan::CharString, seqan::Rooted>::Type itEndseq = end(seq);
     for (; itseq != itEndseq; goNext(itseq))
     {
-        dnacount[(int) seqan::ordValue(*itseq)][j] += 1;
+        dnacount[(int) seqan::ordValue((seqan::Dna5)*itseq)][j] += 1;
 
         if (*itseq == 'N') // count number of Ns per read
         {
@@ -157,7 +154,7 @@ void QualityCheck::read_counts(seqan::CharString & seq, seqan::CharString & qual
         ++j;
     }
 
-    Ncount[cntN] += 1; //count number of Ns per read
+    Ncount[cntN] += 1; // count number of Ns per read
 
     GCcount[cntGC] += 1;
 
@@ -174,7 +171,7 @@ void QualityCheck::read_length(seqan::CharString & seq)
     if (length(readLength) <= lseq){
         resize(readLength, lseq +1, 0);
         }
-    readLength[lseq] += 1; //histogram of read lengths
+    readLength[lseq] += 1; // histogram of read lengths
 }
 
 void QualityCheck::map_Q(__uint8 & mapq)
@@ -182,17 +179,18 @@ void QualityCheck::map_Q(__uint8 & mapq)
     if (length(mapQ) <= mapq){
         resize(mapQ, mapq +1, 0);
         }
-    mapQ[mapq] +=1; //histogram of mapping Qualities
+    mapQ[mapq] +=1; // histogram of mapping Qualities
 }
 
 void QualityCheck::insert_size(int & tlen)
 {
     unsigned index = abs(tlen);
 
-    if (index >  maxtlen){
-        index = maxtlen;
-        }
-    insertSize[index] += 1; //histogram of insert size
+    if (index >= length(insertSize))
+    {
+        index = length(insertSize);
+    }
+    insertSize[index] += 1; // histogram of insert size
 }
 
 void QualityCheck::mis_match(seqan::BamTagsDict & tagsDict)
@@ -206,8 +204,8 @@ void QualityCheck::mis_match(seqan::BamTagsDict & tagsDict)
             if (tagType == 'c' || tagType == 'C' || tagType == 'i' || tagType == 'I' || tagType == 's' || tagType == 'S')
             {
                 unsigned x = 0;
-                extractTagValue(x, tagsDict, tagid); //x gives number of mismatches + deletions + insertions
-                unsigned mmcount = x - DIcount; //x - deletions -insertions gives number of mismatches
+                extractTagValue(x, tagsDict, tagid); // x gives number of mismatches + deletions + insertions
+                unsigned mmcount = x - DIcount; // x - deletions -insertions gives number of mismatches
 
                 if (length(mismatch) <= mmcount){
                     resize(mismatch, mmcount +1, 0);
@@ -223,8 +221,8 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
     // function
     int c_begin = 0;                        // begin position of cigar in seq
     int c_end = 0;                          // end position of cigar in seq
-    unsigned Scount_begin = 0;                   //counting soft-clipping at the beginning
-    unsigned Scount_end = 0;                     //counting soft-clipping at the end
+    unsigned Scount_begin = 0;                   // counting soft-clipping at the beginning
+    unsigned Scount_end = 0;                     // counting soft-clipping at the end
     int cigarlength = length(record.cigar); // cigar is a paired string with 'operation' (ie. S D I M) and 'count'
     DIcount = 0;                            // DIcount is used later in the function mis_match
 
@@ -233,7 +231,7 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
         Scount_begin += record.cigar[0].count;
         for (unsigned j = 0; j < record.cigar[0].count; ++j)
         {
-            scposcount_5prime[j] +=1; //if Soft-clipping at read position
+            scposcount_5prime[j] +=1; // if Soft-clipping at read position
         }
     }
     else if (record.cigar[cigarlength-1].operation == 'S')
@@ -241,7 +239,7 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
         Scount_end += record.cigar[cigarlength-1].count;
         for (unsigned j = length(record.seq) -record.cigar[cigarlength-1].count; j < length(record.seq); ++j)
         {
-            scposcount_3prime[j] +=1; //if Soft-clipping at read position
+            scposcount_3prime[j] +=1; // if Soft-clipping at read position
         }
     }
 
