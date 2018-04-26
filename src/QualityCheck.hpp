@@ -189,7 +189,7 @@ void QualityCheck::insert_size(int & tlen)
 
     if (index >= length(insertSize))
     {
-        index = length(insertSize);
+        index = length(insertSize) - 1;
     }
     insertSize[index] += 1; // histogram of insert size
 }
