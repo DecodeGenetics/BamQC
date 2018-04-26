@@ -2,7 +2,7 @@
 Quality control for BAM files
 
 
-## Dependenccies
+## Dependencies
 
 BamQC depends on the SeqAn core library, version 1.4.2 (https://github.com/seqan/seqan).
 Please use the 1.4.2 release of SeqAn as no other version will work.
