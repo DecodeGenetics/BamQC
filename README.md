@@ -28,7 +28,7 @@ The ``bamqualcheck`` program takes as input a BAM file. In addition, the referen
 
 If you are using another reference than the human genome or if your chromosomes are not named ``chr1, chr2, ...``, you will need to specify the list of main chromosomes using the option ``-c``, e.g.:
 
-    $ ./bamqualcheck -r genome.fa -c 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, 17,18,19,20,21,22,X,Y -o sample.bamqc sample.bam
+    $ ./bamqualcheck -r genome.fa -c 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y -o sample.bamqc sample.bam
 
 If your library has insert sizes exceeding 1000 bps, you need to increase the maximum in the insert size histogram using the option ``-i``, e.g.
 
