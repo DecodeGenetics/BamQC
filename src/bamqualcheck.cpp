@@ -334,7 +334,7 @@ int main(int argc, char const ** argv)
         if (hasFlagSecondary(record))
         {
             counts[l].all.not_primary_alignment += 1;
-            continue;
+//            continue;
         }
         if (hasFlagDuplicate(record))
         {
@@ -346,8 +346,11 @@ int main(int argc, char const ** argv)
         }
 
         // Triplet counting.
-        if (tripletCounting(counts[l].tripletCounts, record, nameStore, genome, tripletCountingOptions) != 0)
-            return 1;
+        if (!hasFlagDuplicate(record) && !hasFlagQCNoPass(record))
+        {
+            if (tripletCounting(counts[l].tripletCounts, record, nameStore, genome, tripletCountingOptions) != 0)
+                return 1;
+        }
 
         // Check if read is in reverse complement.
         if (hasFlagRC(record))
