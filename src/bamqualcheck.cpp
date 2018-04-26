@@ -238,6 +238,10 @@ void writeOutput(std::ofstream & outFile,
         outFile << "mapping_qual_histogram_second"; printString(counts[lid].r2.mapQ, outFile);
         outFile << "mismatch_count_histogram_first"; printString(counts[lid].r1.mismatch, outFile);
         outFile << "mismatch_count_histogram_second"; printString(counts[lid].r2.mismatch, outFile);
+        outFile << "deletion_count_histogram_first"; printString(counts[lid].r1.delhist, outFile);
+        outFile << "deletion_count_histogram_second"; printString(counts[lid].r2.delhist, outFile);
+        outFile << "insertion_count_histogram_first"; printString(counts[lid].r1.inshist, outFile);
+        outFile << "insertion_count_histogram_second"; printString(counts[lid].r2.inshist, outFile);
         outFile << "Ns_by_position_first"; printString(counts[lid].r1.dnacount[4], outFile);
         outFile << "Ns_by_position_second"; printString(counts[lid].r2.dnacount[4], outFile);
         outFile << "As_by_position_first"; printString(counts[lid].r1.dnacount[0], outFile);

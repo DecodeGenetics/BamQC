@@ -22,6 +22,7 @@ public:
     seqan::String<unsigned> mapQ;
     seqan::String<unsigned> readLength;
     seqan::String<unsigned> mismatch;
+    seqan::String<unsigned> delhist, inshist;
 
     // Constructors
     QualityCheck();
@@ -41,7 +42,7 @@ private:
     seqan::String<uint64_t> qualcount;
 
     // Count per read -> histogram
-    unsigned DIcount;
+    unsigned delcount, inscount;
     unsigned qualcount_readnr;
 
     // Functions
@@ -206,7 +207,7 @@ void QualityCheck::mis_match(seqan::BamTagsDict & tagsDict)
             {
                 unsigned x = 0;
                 extractTagValue(x, tagsDict, tagid); // x gives number of mismatches + deletions + insertions
-                unsigned mmcount = x - DIcount; // x - deletions -insertions gives number of mismatches
+                unsigned mmcount = x - delcount - inscount; // x - deletions - insertions gives number of mismatches
 
                 if (length(mismatch) <= mmcount)
                 {
@@ -226,7 +227,8 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
     unsigned Scount_begin = 0;                   // counting soft-clipping at the beginning
     unsigned Scount_end = 0;                     // counting soft-clipping at the end
     int cigarlength = length(record.cigar); // cigar is a paired string with 'operation' (ie. S D I M) and 'count'
-    DIcount = 0;                            // DIcount is used later in the function mis_match
+    delcount = 0;
+    inscount = 0;
 
     if (record.cigar[0].operation == 'S')
     {
@@ -247,12 +249,25 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
 
     for (int i = 0; i < cigarlength; ++i)
     {
-        if ((record.cigar[i].operation == 'D') || (record.cigar[i].operation == 'I')) //TODO: check if N,P,=,X matter here
+        if (record.cigar[i].operation == 'D') //TODO: check if N,P,=,X matter here
         {
-            DIcount += record.cigar[i].count; // counts deletions and insertions for read. Later used in function mis_match
+            delcount += record.cigar[i].count;
         }
-
+        else if (record.cigar[i].operation == 'I')
+        {
+            inscount += record.cigar[i].count;
+        }
     }
+    if (length(delhist) <= delcount)
+    {
+        resize(delhist, delcount + 1);
+    }
+    delhist[delcount] += 1;
+    if (length(inshist) <= inscount)
+    {
+        resize(inshist, inscount + 1);
+    }
+    inshist[inscount] += 1;
 }
 
 void QualityCheck::avgQualPerPos()
