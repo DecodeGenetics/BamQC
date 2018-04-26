@@ -260,12 +260,12 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
     }
     if (length(delhist) <= delcount)
     {
-        resize(delhist, delcount + 1);
+        resize(delhist, delcount + 1, 0);
     }
     delhist[delcount] += 1;
     if (length(inshist) <= inscount)
     {
-        resize(inshist, inscount + 1);
+        resize(inshist, inscount + 1, 0);
     }
     inshist[inscount] += 1;
 }
