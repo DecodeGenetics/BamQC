@@ -19,6 +19,7 @@ public:
     unsigned firstunmapped;
     unsigned secondunmapped;
     unsigned discordant;
+    unsigned FF_RR_orientation;
 
     seqan::String<unsigned> poscov;
     seqan::String<uint64_t> eightmercount;
@@ -45,7 +46,7 @@ private:
 };
 
 OverallNumbers::OverallNumbers() : supplementary(0), duplicates(0), QCfailed(0), not_primary_alignment(0), readcount(0), totalbps(0), bothunmapped(0), firstunmapped(0), secondunmapped(0), discordant(0),
-first(true), vsize(1000), covsize(100), shift(0), id(0)
+FF_RR_orientation(0), first(true), vsize(1000), covsize(100), shift(0), id(0)
 {
     resize(eightmercount, 65536, 0); //TTTTTTTT = 65535
     resize(poscov, covsize + 1, 0);
