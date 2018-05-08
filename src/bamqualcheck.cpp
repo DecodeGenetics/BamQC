@@ -225,6 +225,7 @@ void writeOutput(std::ofstream & outFile,
         outFile << "second_read_unmapped " << counts[lid].all.secondunmapped << std::endl;
         outFile << "discordant_read_pairs " << counts[lid].all.discordant << std::endl;
         outFile << "FF_RR_oriented_pairs " << counts[lid].all.FF_RR_orientation << std::endl;
+        outFile << "total_proper_pairs " << counts[lid].all.properpair << std::endl;
         outFile << "genome_coverage_histogram"; printString(counts[lid].all.poscov, outFile);
         outFile << "insert_size_histogram"; printString(counts[lid].r1.insertSize, outFile);
         outFile << "read_length_histogram_first"; printString(counts[lid].r1.readLength, outFile);
@@ -380,9 +381,13 @@ int main(int argc, char const ** argv)
                     counts[l].all.bothunmapped += 1; // counts number of reads where both first and second are unmapped
                 }
             }
-            if (seqan::hasFlagAllProper(record) && ((!seqan::hasFlagRC(record) && !seqan::hasFlagNextRC(record)) || (seqan::hasFlagRC(record) && seqan::hasFlagNextRC(record))))
+            if (seqan::hasFlagAllProper(record))
             {
-                counts[l].all.FF_RR_orientation += 1;
+                counts[l].all.properpair += 1;
+                if ((!seqan::hasFlagRC(record) && !seqan::hasFlagNextRC(record)) || (seqan::hasFlagRC(record) && seqan::hasFlagNextRC(record))))
+                {
+                    counts[l].all.FF_RR_orientation += 1;
+                }
             }
         }
         else if (seqan::hasFlagLast(record))
