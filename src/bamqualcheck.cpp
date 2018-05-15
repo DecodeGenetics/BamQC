@@ -339,7 +339,7 @@ int main(int argc, char const ** argv)
         if (hasFlagSecondary(record))
         {
             counts[l].all.not_primary_alignment += 1;
-//            continue;
+            continue;
         }
         if (hasFlagDuplicate(record))
         {
