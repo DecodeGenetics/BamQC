@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-static const char* version = "3.3.4+23.g95fbeb4.dirty";
+static const char* version = "dev";
 
 #ifdef __cplusplus
 }
