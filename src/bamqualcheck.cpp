@@ -383,7 +383,7 @@ int main(int argc, char const ** argv)
             if (seqan::hasFlagAllProper(record))
             {
                 counts[l].all.properpair_count += 1;
-                if ((!seqan::hasFlagRC(record) && !seqan::hasFlagNextRC(record)) || (seqan::hasFlagRC(record) && seqan::hasFlagNextRC(record))))
+                if ((!seqan::hasFlagRC(record) && !seqan::hasFlagNextRC(record)) || (seqan::hasFlagRC(record) && seqan::hasFlagNextRC(record)))
                 {
                     counts[l].all.FF_RR_orientation += 1;
                 }
