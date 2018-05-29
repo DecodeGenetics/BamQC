@@ -223,7 +223,6 @@ void writeOutput(std::ofstream & outFile,
         outFile << "both_reads_unmapped " << counts[lid].all.bothunmapped << std::endl;
         outFile << "first_read_unmapped " << counts[lid].all.firstunmapped << std::endl;
         outFile << "second_read_unmapped " << counts[lid].all.secondunmapped << std::endl;
-        outFile << "discordant_read_pairs " << counts[lid].all.discordant << std::endl;
         outFile << "FF_RR_oriented_pairs " << counts[lid].all.FF_RR_orientation << std::endl;
         outFile << "total_proper_pairs " << counts[lid].all.properpair_count << std::endl;
         outFile << "genome_coverage_histogram"; printString(counts[lid].all.poscov, outFile);
@@ -426,10 +425,6 @@ int main(int argc, char const ** argv)
             }
             else if (seqan::hasFlagLast(record))
             {
-                if (!seqan::hasFlagAllProper(record) && (!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record)))
-                {
-                    counts[l].all.discordant += 1;
-                }
                 if (!seqan::hasFlagUnmapped(record))
                 {
                     counts[l].r2.cigar_count(record);

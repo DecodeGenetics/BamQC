@@ -249,7 +249,7 @@ void QualityCheck::cigar_count(seqan::BamAlignmentRecord & record)
 
     for (int i = 0; i < cigarlength; ++i)
     {
-        if (record.cigar[i].operation == 'D') //TODO: check if N,P,=,X matter here
+        if (record.cigar[i].operation == 'D')
         {
             delcount += record.cigar[i].count;
         }
@@ -274,7 +274,7 @@ void QualityCheck::avgQualPerPos()
 {
     for (unsigned i = 0; i < length(qualcount); ++i)
     {
-        avgqualcount[i] = (qualcount[i]/(double)qualcount_readnr); // sum of all read qualities per position / number of reads TODO: check if correct
+        avgqualcount[i] = (qualcount[i]/(double)qualcount_readnr); // sum of all read qualities per position / number of reads
     }
 }
 
