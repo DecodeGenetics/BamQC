@@ -70,9 +70,9 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
 
     // Add kmerstream options.
     addSection(parser, "Kmerstream options");
-    addOption(parser, seqan::ArgParseOption("k", "kmer-size", "Size of k-mers, single value.", seqan::ArgParseArgument::STRING, "STRING"));
+    addOption(parser, seqan::ArgParseOption("k", "kmer-size", "Comma-separated list of k-mer sizes.", seqan::ArgParseArgument::STRING, "STRING"));
     setDefaultValue(parser, "k", "32");
-    addOption(parser, seqan::ArgParseOption("q", "quality-cutoff", "Comma separated list, keep k-mers with bases above quality threshold in PHRED.", seqan::ArgParseArgument::STRING, "STRING"));
+    addOption(parser, seqan::ArgParseOption("q", "quality-cutoff", "Comma-separated list of PHRED quality thresholds. K-mers with bases above quality threshold are kept.", seqan::ArgParseArgument::STRING, "STRING"));
     setDefaultValue(parser, "q", "17");
     addOption(parser, seqan::ArgParseOption("e", "error-rate", "Error rate guaranteed.", seqan::ArgParseArgument::DOUBLE, "DOUBLE"));
     setDefaultValue(parser, "e", "0.01");
