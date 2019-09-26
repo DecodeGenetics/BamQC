@@ -124,62 +124,6 @@ std::set<int> initChroms(ProgramOptions & opt, seqan::StringSet<seqan::CharStrin
 
 
 // -----------------------------------------------------------------------------
-// FUNCTION openFilesAndInit()
-// -----------------------------------------------------------------------------
-
-int openFilesAndInit(seqan::Stream<seqan::Bgzf> & inStream,
-                      seqan::StringSet<seqan::CharString> & nameStore,
-                      seqan::BamIOContext<seqan::StringSet<seqan::CharString> > & context,
-                      seqan::CharString & sampleId,
-                      std::map<seqan::CharString, unsigned> & laneNames,
-                      Genome & genome,
-                      std::set<int> & chrIdset,
-                      std::ofstream & outFile,
-                      ProgramOptions & opt)
-{
-    // Typedefs for name store, cache, and BAM I/O context.
-    typedef seqan::StringSet<seqan::CharString> TNameStore;
-    typedef seqan::NameStoreCache<TNameStore>   TNameStoreCache;
-    typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
-
-    // Open BGZF Stream for reading.
-    if (!open(inStream, toCString(opt.bamFile), "r")) //check if toCstring is needed
-    {
-        std::cerr << "ERROR: Could not open " << opt.bamFile << " for reading.\n";
-        return 1;
-    }
-
-    outFile.open(toCString(opt.outputFile), std::ios::out | std::ios::binary);
-    if (!outFile.good())
-    {
-        std::cerr << "ERROR: Could not open output file " << opt.outputFile << '\n';
-        return 1;
-    }
-
-    TNameStoreCache nameStoreCache(nameStore);
-    context = TBamIOContext(nameStore, nameStoreCache);
-
-    seqan::BamHeader header;
-    if (readRecord(header, context, inStream, seqan::Bam()) != 0)
-    {
-        std::cerr << "ERROR: Could not read header from BAM file " << opt.bamFile << "\n";
-        return 1;
-    }
-
-    // Initialize sample ID and lane names (read groups).
-    getSampleIdAndLaneNames(sampleId, laneNames, header);
-    seqan::clear(header);
-
-    // Initialize reference genome and set of main chromosomes.
-    genome.filename = opt.referenceFile;
-    openFastaFile(genome);
-    chrIdset = initChroms(opt, nameStore);
-
-    return 0;
-}
-
-
-// -----------------------------------------------------------------------------
 // FUNCTION printString()
 // -----------------------------------------------------------------------------
 
@@ -188,6 +132,17 @@ void printString(TString & str, std::ofstream & outFile)
 {
    typedef typename seqan::Iterator<TString>::Type TIterator;
    for(TIterator it = begin(str); it != end(str); ++it)
+   {
+       outFile << " " << *it;
+   }
+   outFile << std::endl;
+}
+
+template <typename TString>
+void printString_cov(TString & str, std::ofstream & outFile)
+{
+   typedef typename seqan::Iterator<TString>::Type TIterator;
+   for(TIterator it = begin(str) + 1; it != end(str); ++it)
    {
        outFile << " " << *it;
    }
@@ -223,8 +178,10 @@ void writeOutput(std::ofstream & outFile,
         outFile << "both_reads_unmapped " << counts[lid].all.bothunmapped << std::endl;
         outFile << "first_read_unmapped " << counts[lid].all.firstunmapped << std::endl;
         outFile << "second_read_unmapped " << counts[lid].all.secondunmapped << std::endl;
+        outFile << "first_and_or_second_read_mapped " << counts[lid].all.first_and_or_second_mapped << std::endl;
         outFile << "FF_RR_oriented_pairs " << counts[lid].all.FF_RR_orientation << std::endl;
         outFile << "total_proper_pairs " << counts[lid].all.properpair_count << std::endl;
+        outFile << "total_proper_pairs_autosome " << counts[lid].all.auto_properpair_count << std::endl;
         outFile << "genome_coverage_histogram"; printString(counts[lid].all.poscov, outFile);
         outFile << "insert_size_histogram"; printString(counts[lid].r1.insertSize, outFile);
         outFile << "read_length_histogram_first"; printString(counts[lid].r1.readLength, outFile);
@@ -281,9 +238,6 @@ void writeOutput(std::ofstream & outFile,
 
 int main(int argc, char const ** argv)
 {
-    // Typedefs for name store and BAM I/O context.
-    typedef seqan::StringSet<seqan::CharString> TNameStore;
-    typedef seqan::BamIOContext<TNameStore>     TBamIOContext;
 
     ProgramOptions opt;
     TripletCountingOptions tripletCountingOptions;
@@ -294,9 +248,23 @@ int main(int argc, char const ** argv)
 
     // Open files and initialize context.
 
-    seqan::Stream<seqan::Bgzf> inStream;
-    TNameStore nameStore;
-    TBamIOContext context;
+    // Initialize stream
+    seqan::BamStream::Format format;
+    if (seqan::isEqual(toCString(opt.bamFile), "-"))
+    {
+        format = seqan::BamStream::SAM;
+    }
+    else
+    {
+        format = seqan::BamStream::BAM;
+    }
+
+    seqan::BamStream inStream(toCString(opt.bamFile), seqan::BamStream::READ, format);
+    if (!isGood(inStream))
+    {
+        std::cerr << "ERROR: Could not open " << opt.bamFile << " for reading.\n";
+        return 1;
+    }
 
     seqan::CharString sampleId;
     std::map<seqan::CharString, unsigned> laneNames;
@@ -306,8 +274,23 @@ int main(int argc, char const ** argv)
 
     std::ofstream outFile;
 
-    if (openFilesAndInit(inStream, nameStore, context, sampleId, laneNames, genome, chrIdset, outFile, opt) == 1)
+    // BEGIN Open file and Init
+    outFile.open(toCString(opt.outputFile), std::ios::out | std::ios::binary);
+    if (!outFile.good())
+    {
+        std::cerr << "ERROR: Could not open output file " << opt.outputFile << '\n';
         return 1;
+    }
+
+    // Initialize sample ID and lane names (read groups).
+    getSampleIdAndLaneNames(sampleId, laneNames, inStream.header);
+    seqan::clear(inStream.header);
+
+    // Initialize reference genome and set of main chromosomes.
+    genome.filename = opt.referenceFile;
+    openFastaFile(genome);
+    chrIdset = initChroms(opt, inStream._nameStore);
+    // END Open file and Init
 
     // Initialize all counts for each lane.
     seqan::String<Counts> counts;
@@ -316,10 +299,11 @@ int main(int argc, char const ** argv)
 
     // Iterate the input BAM file.
     seqan::BamAlignmentRecord record;
+    unsigned l;
     while (!atEnd(inStream))
     {
         // Read record from BAM file.
-        if (readRecord(record, context, inStream, seqan::Bam()) != 0)
+        if (readRecord(record, inStream) != 0)
         {
             std::cerr << "ERROR: Could not read record from BAM File " << opt.bamFile << "\n";
             return 1;
@@ -327,7 +311,7 @@ int main(int argc, char const ** argv)
 
         // Get lane of the record.
         seqan::BamTagsDict tagsDict(record.tags);
-        unsigned l = getLane(record, tagsDict, laneNames, context);
+        l = getLane(record, tagsDict, laneNames, inStream.bamIOContext);
         if (l == -1) return 1;
 
         // Check the four highest flags and continue in some cases.
@@ -353,7 +337,7 @@ int main(int argc, char const ** argv)
         // Triplet counting.
         if (!hasFlagDuplicate(record) && !hasFlagQCNoPass(record))
         {
-            if (tripletCounting(counts[l].tripletCounts, record, nameStore, genome, tripletCountingOptions) != 0)
+            if (tripletCounting(counts[l].tripletCounts, record, inStream._nameStore, genome, tripletCountingOptions) != 0)
                 return 1;
         }
 
@@ -422,6 +406,16 @@ int main(int argc, char const ** argv)
                         }
                     }
                 }
+                // check of one or both mapped for chr1-22
+                if ((!seqan::hasFlagUnmapped(record) || !seqan::hasFlagNextUnmapped(record)) && !seqan::hasFlagDuplicate(record))
+                {
+                    counts[l].all.first_and_or_second_mapped += 1;
+                }
+                // check proper pair chr1-22 and not duplicate
+                if (seqan::hasFlagAllProper(record) && !seqan::hasFlagDuplicate(record))
+                {
+                    counts[l].all.auto_properpair_count += 1;
+                }
             }
             else if (seqan::hasFlagLast(record))
             {
@@ -432,7 +426,8 @@ int main(int argc, char const ** argv)
                     counts[l].r2.mis_match(tagsDict);
                 }
             }
-            if (!seqan::hasFlagUnmapped(record))
+
+            if (!seqan::hasFlagUnmapped(record) && !seqan::hasFlagDuplicate(record)) // needs to be mapped and not duplicated
             {
                 counts[l].all.coverage(record);
             }
@@ -445,9 +440,18 @@ int main(int argc, char const ** argv)
         {
             RunBamStream(counts[l].sps, record.seq, record.qual);
         }
+        clear(record);
+    }
+
+    // update coverage for the last time.
+    for (std::map<seqan::CharString, unsigned>::iterator it = laneNames.begin(); it != laneNames.end(); ++it)
+    {
+        unsigned lid = it->second;
+        counts[lid].all.update_coverage();
+        counts[lid].all.update_vectors();
+        counts[lid].all.update_coverage();
     }
 
     writeOutput(outFile, sampleId, laneNames, counts, opt.q_cutoff, opt.klist);
     return 0;
 }
-

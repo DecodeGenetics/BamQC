@@ -53,11 +53,11 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
 
     // Define usage line and long description.
     addUsageLine(parser, "[\\fIOPTIONS\\fP] \\fIBAMFILE\\fP");
-    addDescription(parser, "Program for bam quality checks. ");
+    addDescription(parser, "Program for bam quality checks. The program can read from bamfile or stdin(sam format)");
 
     // Add the required argument.
-    addArgument(parser, seqan::ArgParseArgument(seqan::ArgParseArgument::INPUTFILE,"bamfile", "False", 1));
-    setValidValues(parser, 0,"bam sam");
+    addArgument(parser, seqan::ArgParseArgument(seqan::ArgParseArgument::INPUTFILE, "bamfile", "False", 1));
+    setValidValues(parser, 0, "- bam sam");
 
     // Add general options.
     addSection(parser, "General options");
@@ -85,12 +85,29 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
     setRequired(parser, "o");
 
     // Parse command line.
-    seqan::ArgumentParser::ParseResult res = seqan::parse(parser, argc, argv);
+    std::ostringstream errorStream;
+    seqan::ArgumentParser::ParseResult res = seqan::parse(parser, argc, argv, std::cout, errorStream);
     if (res != seqan::ArgumentParser::PARSE_OK)
-        return res;
+    {
+        if (seqan::isEqual(errorStream.str(), "bamqualcheck: illegal option -- -\n"))
+        {
+            std::cerr << "Reading from stdin" << std::endl;
+        }
+        else
+        {
+            std::cerr << errorStream.str() << std::endl;
+            return res;
+        }
+    }
+    // check if argument is -
+    std::string lastarg = argv[argc-1];
+    if (lastarg == "-") {
+        argc -=1;
+        options.bamFile = '-';
+    }
 
     // Get argument and option values.
-    getArgumentValue(options.bamFile, parser, 0);
+
     std::string qcut, kmer;
     getOptionValue(options.referenceFile, parser, "r");
     getOptionValue(qcut, parser, "q");
@@ -122,6 +139,11 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
         if (sk.peek() == ',')
             sk.ignore();
     }
+
+    if (length(options.bamFile) == 0) {
+        getArgumentValue(options.bamFile, parser, 0);
+
+     }
 
     return seqan::ArgumentParser::PARSE_OK;
 }

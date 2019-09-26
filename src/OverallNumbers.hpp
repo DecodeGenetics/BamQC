@@ -18,8 +18,10 @@ public:
     unsigned bothunmapped;
     unsigned firstunmapped;
     unsigned secondunmapped;
+    unsigned first_and_or_second_mapped;
     unsigned FF_RR_orientation;
     unsigned properpair_count;
+    unsigned auto_properpair_count;
 
     seqan::String<unsigned> poscov;
     seqan::String<uint64_t> eightmercount;
@@ -28,6 +30,8 @@ public:
     void count8mers(seqan::CharString & seq);
     void get_kmer_histogram(std::ofstream & outFile);
     void ten_most_abundant_kmers(std::ofstream & outFile);
+    void update_coverage();
+    void update_vectors();
 
 private:
     bool first;
@@ -40,13 +44,11 @@ private:
     seqan::String<unsigned> v2;
     seqan::String<unsigned> kmer_histogram;
     seqan::String<uint64_t> ten_max_kmers;
-    void update_coverage();
-    void update_vectors();
 
 };
 
 OverallNumbers::OverallNumbers() : supplementary(0), duplicates(0), QCfailed(0), not_primary_alignment(0), readcount(0), totalbps(0), bothunmapped(0), firstunmapped(0), secondunmapped(0),
-FF_RR_orientation(0), properpair_count(0), first(true), vsize(1000), covsize(100), shift(0), id(0)
+first_and_or_second_mapped(0), FF_RR_orientation(0), properpair_count(0), auto_properpair_count(0), first(true), vsize(1000), covsize(100), shift(0), id(0)
 {
     resize(eightmercount, 65536, 0); //TTTTTTTT = 65535
     resize(poscov, covsize + 1, 0);
@@ -78,6 +80,7 @@ void OverallNumbers::coverage(seqan::BamAlignmentRecord & record)
 {
     unsigned beginpos = record.beginPos;
 
+
     if (first) // move to initializer
     {
         first = false;
@@ -103,7 +106,9 @@ void OverallNumbers::coverage(seqan::BamAlignmentRecord & record)
         update_coverage();
         update_vectors();
         shift += vsize;
+        pos = beginpos - shift; // update position after updating vectors
     }
+
     int c = 0;
     for (unsigned i = 0; i < length(record.cigar); ++i)
     {
@@ -113,7 +118,7 @@ void OverallNumbers::coverage(seqan::BamAlignmentRecord & record)
         }
         if (record.cigar[i].operation == 'M' || record.cigar[i].operation == 'D')
         {
-            for (unsigned j = c; j < record.cigar[i].count; ++j) // replace to for (c; c < record.cigar[i].count; c++) and skip c +=
+            for (unsigned j = c; j < record.cigar[i].count + c; ++j)
             {
                 if (pos + j < vsize)
                 {
@@ -180,8 +185,6 @@ void OverallNumbers::ten_most_abundant_kmers(std::ofstream & outFile)
     seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itmax = begin(ten_max_kmers);
     seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itmaxEnd = end(ten_max_kmers);
     std::sort(itmax, itmaxEnd, std::greater<uint64_t>());
-
-
     seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itv = begin(eightmercount);
     seqan::Iterator<seqan::String<uint64_t>, seqan::Standard>::Type itvEnd = end(eightmercount);
 

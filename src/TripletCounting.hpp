@@ -63,6 +63,7 @@ struct Genome
     seqan::SequenceStream stream;
     seqan::CharString chromName;
     seqan::Dna5String chrom;
+    unsigned count = 0;
 };
 
 // --------------------------------------------------------------------------
@@ -82,18 +83,23 @@ openFastaFile(Genome & genome)
 // --------------------------------------------------------------------------
 
 bool
-readFastaRecord(Genome & genome)
+readFastaRecord(Genome & genome, seqan::CharString recordChrom)
 {
     seqan::CharString chrom;
     seqan::CharString chromName;
     if (readRecord(chromName, chrom, genome.stream) != 0)
     {
-        std::cout << "ERROR: Could not read fasta record from " << genome.filename << std::endl;
+        std::cout << "ERROR: Could not read fasta record at line: " << genome.count+1 << " from " << genome.filename << std::endl;
+        std::cout << "recordChrom: " << recordChrom << std::endl;
+        std::cout << "Last chromName was: " << genome.chromName << std::endl;
         return 1;
     }
+    genome.count +=1;
     genome.chrom = chrom;
     std::string s = toCString(chromName);
-    genome.chromName = s.substr(0, s.find(' '));
+    seqan::CharString chromName_tmp = s.substr(0, s.find(' '));
+    std::string ss = toCString(chromName_tmp);
+    genome.chromName = ss.substr(0, ss.find('\t'));
     return 0;
 }
 
@@ -249,7 +255,7 @@ tripletCounting(seqan::String<TripletCounts> & counts,
     while (recordChrom != genome.chromName)
     {
         // Read the next chromosome of reference genome.
-        if (readFastaRecord(genome) != 0) return 1;
+        if (readFastaRecord(genome, recordChrom) != 0) return 1;
     }
 
     if (recordChrom == genome.chromName)
