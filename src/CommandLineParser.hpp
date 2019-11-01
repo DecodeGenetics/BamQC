@@ -48,7 +48,7 @@ parseCommandLine(ProgramOptions & options, int argc, char const ** argv)
 
     // Set short description, version, and date.
     setShortDescription(parser, "String Modifier");
-    setDate(parser, "April 2018");
+    setDate(parser, "August 2019");
     setVersion(parser, version);
 
     // Define usage line and long description.
